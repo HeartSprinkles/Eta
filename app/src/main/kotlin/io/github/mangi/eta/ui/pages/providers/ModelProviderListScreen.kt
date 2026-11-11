@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +30,9 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Item
 import com.itos.coui.radiobutton.RadioButton
@@ -37,9 +41,11 @@ import com.itos.coui.text.Text as CouiText
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.typeLabel
+import io.github.mangi.eta.data.repository.ProviderCredentialRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -54,7 +60,9 @@ import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
 import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Icon
@@ -74,19 +82,50 @@ internal fun ModelProviderListScreen(
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
+    var configuredOAuthProviderIds by remember { mutableStateOf(emptySet<String>()) }
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
-    val filteredProviders = remember(providers, searchQuery) {
-        val query = searchQuery.trim()
-        providers.filter { provider ->
-            query.isBlank() ||
-                provider.name.contains(query, ignoreCase = true) ||
-                provider.baseUrl.contains(query, ignoreCase = true) ||
-                provider.typeLabel.contains(query, ignoreCase = true)
+    // OAuth 凭据存在加密存储里，配置内的 apiKey 为空；这里只在后台解析“已登录”的 Provider ID 供排序判断，
+    // 不把任何令牌带进列表状态。离开页面去登录后再回来（ON_RESUME）需要重新解析，否则顺序会滞后。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var credentialRevision by remember { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) credentialRevision++
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(providers, credentialRevision) {
+        val oauthProviders = providers.filter { ProviderAuthModes.isOAuth(it.authMode) }
+        if (oauthProviders.isEmpty()) {
+            configuredOAuthProviderIds = emptySet()
+            return@LaunchedEffect
+        }
+        configuredOAuthProviderIds = withContext(Dispatchers.IO) {
+            oauthProviders.resolveConfiguredOAuthProviderIds { provider ->
+                // 凭据读取失败（密钥失效、文件损坏）只降级为“未登录”，不能影响整个列表渲染。
+                runCatching { ProviderCredentialRepository.account(provider.id, provider.authMode) }
+                    .getOrNull()
+                    ?.isUsableCredential() == true
+            }
+        }
+    }
+
+    val filteredProviders = remember(providers, searchQuery, configuredOAuthProviderIds) {
+        val query = searchQuery.trim()
+        providers
+            .filter { provider ->
+                query.isBlank() ||
+                    provider.name.contains(query, ignoreCase = true) ||
+                    provider.baseUrl.contains(query, ignoreCase = true) ||
+                    provider.typeLabel.contains(query, ignoreCase = true)
+            }
+            .sortedConfiguredFirst(configuredOAuthProviderIds)
     }
 
     when (LocalUiStyle.current) {

@@ -29,6 +29,12 @@ require(buildMetadata == null || buildMetadata.matches(Regex("[0-9A-Za-z.-]+")))
 }
 val buildMetadataSuffix = buildMetadata?.let { "+$it" }.orEmpty()
 
+// 仅测试流水线传入，用于生成与原版共存的独立包名；日常 Debug 构建不传，保持原包名
+val testApplicationIdSuffix = providers.gradleProperty("eta.applicationIdSuffix").orNull?.takeIf { it.isNotBlank() }
+require(testApplicationIdSuffix == null || testApplicationIdSuffix.matches(Regex("\\.[a-z0-9.]+"))) {
+    "eta.applicationIdSuffix 必须以点开头的合法包名后缀"
+}
+
 android {
     namespace = "io.github.mangi.eta"
     compileSdk = 37
@@ -63,6 +69,8 @@ android {
         debug {
             // 版本名带构建类型标记，设置页与 APK 文件名据此区分 Debug 包
             versionNameSuffix = "-debug" + buildMetadataSuffix
+            // 清单中的签名权限与 ContentProvider authority 均基于 applicationId 派生
+            testApplicationIdSuffix?.let { applicationIdSuffix = it }
             isMinifyEnabled = false
             isPseudoLocalesEnabled = true
         }
