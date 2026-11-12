@@ -327,6 +327,7 @@
   <string name="ui_provider_does_not_exist_83cee6">Provider does not exist</string>
   <string name="ui_search_in_one_turn_179584">Circle to Search</string>
   <string name="ui_contextual_usage_d12810">Context usage</string>
+  <string name="chat_stats_usage_title">Usage</string>
   <string name="ui_context_length_tokens_227860">Context window (tokens)</string>
   <string name="ui_bright_screen_evokes_automatic_voice_input_4358fe">Bright screen evokes automatic voice input</string>
   <string name="ui_only_take_over_with_agent_prefix_d17556">Only take over with /agent prefix</string>

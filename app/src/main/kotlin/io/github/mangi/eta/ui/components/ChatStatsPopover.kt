@@ -210,8 +210,8 @@ internal fun ContextUsageStatsPopoverPopup(
     ChatStatsPopoverPopup(onDismissRequest = onDismissRequest) {
         StatsSectionHeader(
             icon = ChatActionIcons.Database,
-            title = if (stats.hasTokenUsage) "Token 用量" else stringResource(R.string.ui_contextual_usage_d12810),
-            value = if (stats.hasTokenUsage) "${formatExactTokenCount(stats.totalTokens)} tok" else null,
+            title = if (stats.hasTokenUsage) stringResource(R.string.chat_stats_usage_title) else stringResource(R.string.ui_contextual_usage_d12810),
+            value = if (stats.hasTokenUsage) "${formatTokenAmount(stats.totalTokens)} tok" else null,
         )
         StatsSectionDivider()
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -571,6 +571,27 @@ internal fun formatTokensPerSecond(tps: Double): String {
 
 internal fun formatExactTokenCount(tokens: Int, locale: Locale = Locale.getDefault()): String =
     NumberFormat.getIntegerInstance(locale).format(tokens.coerceAtLeast(0))
+
+/**
+ * 统计卡片顶部的用量读数：小数字保留精确值，千级以上压缩为 K/M/B 并保留一位小数。
+ *
+ * 四舍五入后进位到下一量级时提升单位（999,950 → 1M，而不是 1000K），小数位为 0 时省略。
+ */
+internal fun formatTokenAmount(tokens: Int, locale: Locale = Locale.getDefault()): String {
+    val value = tokens.coerceAtLeast(0)
+    if (value < 1_000) return NumberFormat.getIntegerInstance(locale).format(value)
+    val units = listOf(1_000L to "K", 1_000_000L to "M", 1_000_000_000L to "B")
+    var index = units.indexOfLast { value >= it.first }
+    var tenths = (value.toLong() * 10L + units[index].first / 2L) / units[index].first
+    while (tenths >= 10_000L && index < units.lastIndex) {
+        index += 1
+        tenths = (value.toLong() * 10L + units[index].first / 2L) / units[index].first
+    }
+    val whole = tenths / 10L
+    val decimal = tenths % 10L
+    val number = if (decimal == 0L) whole.toString() else "$whole.$decimal"
+    return number + units[index].second
+}
 
 internal fun formatCacheHitPercent(cachedTokens: Int, promptTokens: Int): String? {
     if (promptTokens <= 0 || cachedTokens < 0) return null

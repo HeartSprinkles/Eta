@@ -308,6 +308,7 @@
   <string name="ui_provider_does_not_exist_83cee6">Provider 不存在</string>
   <string name="ui_search_in_one_turn_179584">圈選搜尋</string>
   <string name="ui_contextual_usage_d12810">內容用量</string>
+  <string name="chat_stats_usage_title">用量</string>
   <string name="ui_context_length_tokens_227860">內容長度上限（tokens）</string>
   <string name="ui_bright_screen_evokes_automatic_voice_input_4358fe">亮屏喚起自動語音輸入</string>
   <string name="ui_only_take_over_with_agent_prefix_d17556">僅以 /agent 前綴接管</string>
