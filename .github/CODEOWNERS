@@ -1,0 +1,12 @@
+# Fork-maintenance ownership; upstream application code keeps its original review policy.
+/.github/workflows/fork-*.yml @HeartSprinkles
+/.github/fork-maintenance.json @HeartSprinkles
+/.github/UPSTREAM_SYNC.md @HeartSprinkles
+/.github/FORK_FEATURES.md @HeartSprinkles
+/scripts/fork/ @HeartSprinkles
+/gradle/fork-debug.gradle.kts @HeartSprinkles
+/app/src/main/kotlin/io/github/mangi/eta/core/ForkPackageIdentity.kt @HeartSprinkles
+/app/src/main/kotlin/io/github/mangi/eta/ui/screens/providers/ConfiguredProviderUiState.kt @HeartSprinkles
+/app/src/main/kotlin/io/github/mangi/eta/ui/screens/providers/ProviderListOrdering.kt @HeartSprinkles
+/app/src/main/kotlin/io/github/mangi/eta/ui/components/chat/TokenAmountFormat.kt @HeartSprinkles
+/app/src/main/res/**/fork_strings.xml @HeartSprinkles

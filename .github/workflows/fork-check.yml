@@ -1,0 +1,24 @@
+name: Fork Check
+
+on:
+  push:
+    branches:
+      - custom-main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - custom-main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    uses: ./.github/workflows/fork-validation.yml
+    with:
+      revision: ${{ github.sha }}

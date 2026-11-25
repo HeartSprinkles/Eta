@@ -2,6 +2,8 @@
 
 **简体中文** | [English](README_EN.md)
 
+> 本仓库是 `HeartSprinkles/Eta` 定制 fork：在纯净 `upstream-tracking` 之上维护线性的 `custom-main`。见 [维护流程](.github/UPSTREAM_SYNC.md) 与 [独有功能清单](.github/FORK_FEATURES.md)。以下保留上游项目介绍；本次迁移不发布正式 APK。
+
 [![GitHub Stars](https://img.shields.io/github/stars/Mangi-11/Eta?logo=github&label=Stars&color=1677FF)](https://github.com/Mangi-11/Eta/stargazers)
 [![GitHub Releases 累计下载量](https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&label=Downloads&color=1677FF)](https://github.com/Mangi-11/Eta/releases)
 ![minSdk 34](https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&logoColor=white)

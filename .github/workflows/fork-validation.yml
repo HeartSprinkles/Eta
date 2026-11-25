@@ -1,0 +1,80 @@
+name: Fork Validation
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    name: Fork maintenance safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - name: Test fast-forward, rebase, conflict and lease safeguards
+        run: python3 -m unittest discover -s scripts/fork/tests -v
+
+  android:
+    name: Fork checks (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [standard, isolated]
+    steps:
+      - name: Check out exact validation revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - name: Configure build environment
+        uses: ./.github/actions/setup-build
+      - name: Lint, unit tests and Debug APK
+        env:
+          REVISION: ${{ inputs.revision }}
+          VARIANT: ${{ matrix.variant }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=("-Peta.buildMetadata=${REVISION:0:7}")
+          if [[ "$VARIANT" == isolated ]]; then
+            args+=("-Peta.applicationIdSuffix=.debug")
+          fi
+          ./gradlew --no-daemon --no-configuration-cache --continue "${args[@]}" \
+            :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify APK installation and component identities
+        env:
+          VARIANT: ${{ matrix.variant }}
+        shell: bash
+        run: |
+          package=io.github.mangi.eta
+          if [[ "$VARIANT" == isolated ]]; then package+=.debug; fi
+          python3 scripts/fork/verify_apk.py "$package"
+      - name: Upload test APK
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: eta-fork-${{ matrix.variant }}-${{ github.run_id }}
+          path: app/build/outputs/apk/debug/Eta-v*.apk
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fork-reports-${{ matrix.variant }}-${{ github.run_id }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

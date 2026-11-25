@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "origin": "HeartSprinkles/Eta",
+  "upstream": "Mangi-11/Eta",
+  "tracking_branch": "upstream-tracking",
+  "custom_branch": "custom-main",
+  "feature_prefix": "feature/"
+}

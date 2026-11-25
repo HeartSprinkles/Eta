@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+remote=$1
+url=$2
+case "$remote:$url" in
+  upstream:*|*:https://github.com/Mangi-11/Eta*|*:git@github.com:Mangi-11/Eta*)
+    echo 'Pushing to upstream is forbidden.' >&2
+    exit 1 ;;
+esac
+hook_dir=$(git config --get core.hooksPath)
+upstream_branch=$(cat "$hook_dir/upstream-default")
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = refs/heads/upstream-tracking ]; then
+    if [ "$local_sha" = "$zero" ]; then
+      echo 'Deleting upstream-tracking is forbidden.' >&2; exit 1
+    fi
+    expected=$(git rev-parse "refs/remotes/upstream/$upstream_branch")
+    if [ "$local_sha" != "$expected" ]; then
+      echo 'upstream-tracking must exactly match the fetched upstream default branch.' >&2; exit 1
+    fi
+    if [ "$remote_sha" != "$zero" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+      echo 'upstream-tracking can only fast-forward. Fetch and inspect the remote first.' >&2; exit 1
+    fi
+  fi
+done
