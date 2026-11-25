@@ -111,6 +111,7 @@ Eta 对标手机厂商预装的一方系统助手，围绕 Android 系统服务�
 - [角色功能](docs/CHARACTERS.md)：酒馆角色卡兼容、世界书与独立记忆
 - [HyperOS 系统入口](docs/HYPEROS_SYSTEM_ENTRY.md)：HyperOS 电源键与一圈即搜适配说明
 - [终端原生组件](docs/TERMINAL_NATIVE.md)：PTY 与 PRoot 原生组件构建方式
+- [Fork 上游同步与独有功能](.github/UPSTREAM_SYNC.md)：同步策略、冲突处理与 [功能保留清单](.github/FORK_FEATURES.md)
 
 ## 关于 PR 与贡献
 

@@ -1,0 +1,131 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # Daily at 07:17 UTC, outside the top of the hour when scheduled Actions are busiest.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Prepare upstream sync PR
+    if: github.repository == 'HeartSprinkles/Eta' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out fork main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # This job only performs Git merges and opens/updates a PR. It never builds or executes
+      # code from the upstream candidate while holding its write-capable GITHUB_TOKEN.
+      - name: Merge upstream main and open or update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORK_REPOSITORY: ${{ github.repository }}
+          FORK_OWNER: ${{ github.repository_owner }}
+          BASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          readonly upstream_repository="Mangi-11/Eta"
+          readonly sync_branch="sync/upstream-main"
+          readonly base_sha="$(git rev-parse "${BASE_SHA}^{commit}")"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "https://github.com/${upstream_repository}.git"
+          git fetch --no-tags upstream main
+          upstream_sha="$(git rev-parse refs/remotes/upstream/main)"
+
+          if git merge-base --is-ancestor "$upstream_sha" "$base_sha"; then
+            echo "Fork main already contains upstream main at ${upstream_sha}."
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --heads origin "$sync_branch" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/${sync_branch}:refs/remotes/origin/${sync_branch}"
+            git switch --create "$sync_branch" --track "origin/${sync_branch}"
+            if ! git merge --no-edit "$base_sha"; then
+              conflicts="$(git diff --name-only --diff-filter=U || true)"
+              git merge --abort
+              echo "::error::Could not merge current fork main into ${sync_branch}. Resolve the open sync PR manually."
+              printf '%s\n' "$conflicts"
+              exit 1
+            fi
+          else
+            git switch --create "$sync_branch" "$base_sha"
+          fi
+
+          if ! git merge-base --is-ancestor "$upstream_sha" HEAD; then
+            if ! git merge --no-edit "$upstream_sha"; then
+              conflicts="$(git diff --name-only --diff-filter=U || true)"
+              git merge --abort
+              echo "::error::Upstream merge conflict. No remote branch was changed; resolve the sync PR manually."
+              printf '%s\n' "$conflicts"
+              exit 1
+            fi
+          fi
+
+          git merge-base --is-ancestor "$base_sha" HEAD
+          git merge-base --is-ancestor "$upstream_sha" HEAD
+
+          # Ordinary fast-forward push only. A concurrent or manually rewritten branch fails safe.
+          git push origin "HEAD:refs/heads/${sync_branch}"
+
+          pr_body="${RUNNER_TEMP}/upstream-sync-pr.md"
+          {
+            echo "## Upstream sync"
+            echo
+            echo "- Fork base: [\`${base_sha:0:12}\`](https://github.com/${FORK_REPOSITORY}/commit/${base_sha})"
+            echo "- Upstream main: [\`${upstream_sha:0:12}\`](https://github.com/${upstream_repository}/commit/${upstream_sha})"
+            echo
+            echo "This PR merges upstream main into the fork without rebasing or replacing fork history. It is intentionally not auto-merged."
+            echo
+            echo "### Fork regression review"
+            echo
+            echo "- [ ] Configured API-key/OAuth providers remain stably ordered before unconfigured providers."
+            echo "- [ ] The chat usage headline remains compact (K/M/B); detailed token rows remain exact."
+            echo "- [ ] The application ID-derived package handling and side-by-side debug build remain valid."
+            echo "- [ ] Review CI and any changes to workflows, build/signing, package identity, or update sources."
+            echo "- [ ] Merge using a merge commit so future upstream ancestry remains intact."
+            echo
+            echo "Resolve conflicts on this branch and push a normal commit. Do not force-push or squash/rebase this long-lived sync branch."
+          } > "$pr_body"
+
+          pr_number="$(gh pr list \
+            --repo "$FORK_REPOSITORY" \
+            --state open \
+            --base main \
+            --head "${FORK_OWNER}:${sync_branch}" \
+            --json number \
+            --jq '.[0].number // empty')"
+          pr_title="chore: sync upstream main (${upstream_sha:0:7})"
+
+          if [[ -n "$pr_number" ]]; then
+            gh pr edit "$pr_number" \
+              --repo "$FORK_REPOSITORY" \
+              --title "$pr_title" \
+              --body-file "$pr_body"
+            echo "Updated upstream sync PR #${pr_number}."
+          else
+            gh pr create \
+              --repo "$FORK_REPOSITORY" \
+              --base main \
+              --head "${FORK_OWNER}:${sync_branch}" \
+              --title "$pr_title" \
+              --body-file "$pr_body"
+          fi

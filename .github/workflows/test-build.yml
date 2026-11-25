@@ -1,11 +1,15 @@
 name: Test Build
 
-# 仅供测试分支使用：构建使用独立包名的 Debug 测试包，与原版共存安装。
+# 构建使用独立包名的 Debug 测试包，与原版共存安装；PR 检查也验证 applicationId 隔离。
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - test-build
       - "feat/**"
+      - "sync/**"
   workflow_dispatch:
 
 permissions:

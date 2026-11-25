@@ -113,6 +113,7 @@ See [Device Support & Permissions](docs/ROOTLESS_SUPPORT.md) for full details.
 - [Characters](docs/CHARACTERS.md) — Tavern card compatibility, worldbooks, and story memory
 - [HyperOS System Entry](docs/HYPEROS_SYSTEM_ENTRY.md) — Power-button routing and Circle to Search on HyperOS
 - [Native Terminal Components](docs/TERMINAL_NATIVE.md) — Building bundled PTY and PRoot components
+- [Fork upstream sync and feature register](.github/UPSTREAM_SYNC.md) — Sync policy, conflict recovery, and [fork-specific behaviors to preserve](.github/FORK_FEATURES.md)
 
 ## Pull Requests and Contributing
 
