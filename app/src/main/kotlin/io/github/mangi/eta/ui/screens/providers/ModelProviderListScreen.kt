@@ -67,11 +67,13 @@ internal fun ModelProviderListScreen(
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
+    val configuredOAuthProviderIds = rememberConfiguredOAuthProviderIds(providers)
+
     val displayNames = providers.associate { provider ->
         val nameRes = BuiltinProviders.defaultNameRes(provider.id, provider.name)
         provider.id to (if (nameRes != null) stringResource(nameRes) else provider.name)
     }
-    val filteredProviders = remember(providers, searchQuery, displayNames) {
+    val filteredProviders = remember(providers, searchQuery, displayNames, configuredOAuthProviderIds) {
         val query = searchQuery.trim()
         providers.filter { provider ->
             val localizedName = displayNames[provider.id] ?: provider.name
@@ -80,7 +82,7 @@ internal fun ModelProviderListScreen(
                 localizedName.contains(query, ignoreCase = true) ||
                 provider.baseUrl.contains(query, ignoreCase = true) ||
                 provider.typeLabel.contains(query, ignoreCase = true)
-        }
+        }.sortedConfiguredFirst(configuredOAuthProviderIds)
     }
 
     val activeDeleteTarget = providerToDelete ?: retainedProviderToDelete
