@@ -4,6 +4,7 @@ import android.os.SystemClock
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.accessibility.PackageWindowVisibility
 import io.github.mangi.eta.core.AgentLogger
+import io.github.mangi.eta.core.ForkPackageIdentity
 import java.util.concurrent.atomic.AtomicBoolean
 import io.github.mangi.eta.agent.runtime.ipc.AgentRuntimeWire
 
@@ -133,7 +134,7 @@ internal class EntrySurfaceGuard private constructor(
             return EntrySurfaceGuard(packageName, logger, ownedSurfaceDismissal)
         }
 
-        private const val ETA_PACKAGE_NAME = "io.github.mangi.eta"
+        private val ETA_PACKAGE_NAME = ForkPackageIdentity.packageName
         private const val NANOS_PER_MILLISECOND = 1_000_000L
     }
 }

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.hook.system
 
+import io.github.mangi.eta.BuildConfig
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.core.ModuleConfig
 import org.junit.Assert.assertEquals
@@ -9,6 +10,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AssistantBindingTest {
+    // Implementation namespace is deliberately independent of the installation application ID.
+    private val etaClass = "io.github.mangi.eta.agent.voice.EtaVoiceInteractionService"
+    private val expectedEtaShortComponent = if (BuildConfig.APPLICATION_ID == "io.github.mangi.eta") {
+        "${BuildConfig.APPLICATION_ID}/.agent.voice.EtaVoiceInteractionService"
+    } else {
+        "${BuildConfig.APPLICATION_ID}/$etaClass"
+    }
+
     @Test
     fun `OEM target has no managed assistant binding`() {
         assertNull(assistantBindingFor(PowerAssistantTarget.OEM))
@@ -27,17 +36,17 @@ class AssistantBindingTest {
 
         assertEquals(ModuleConfig.GOOGLE_PACKAGE, gemini.packageName)
         assertEquals(ModuleConfig.GOOGLE_ASSISTANT_COMPONENT, gemini.componentName)
-        assertEquals(ModuleConfig.ETA_PACKAGE, eta.packageName)
-        assertEquals(ModuleConfig.ETA_VOICE_INTERACTION_COMPONENT, eta.componentName)
+        assertEquals(BuildConfig.APPLICATION_ID, eta.packageName)
+        assertEquals("${BuildConfig.APPLICATION_ID}/$etaClass", eta.componentName)
         assertEquals(
-            "io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService",
+            expectedEtaShortComponent,
             eta.shortComponentName,
         )
         assertEquals(ModuleConfig.GOOGLE_ASSISTANT_COMPONENT, gemini.shortComponentName)
         assertTrue(
             isSameComponentName(
                 eta.componentName,
-                "io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService",
+                expectedEtaShortComponent,
             ),
         )
         assertFalse(
@@ -113,7 +122,7 @@ class AssistantBindingTest {
     @Test
     fun `assistant setting guard rewrites only xiaoai overwrites while auto config is enabled`() {
         assertEquals(
-            "io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService",
+            expectedEtaShortComponent,
             rewriteManagedAssistantSettingIfOverwritten(
                 autoConfigEnabled = true,
                 target = PowerAssistantTarget.ETA,
@@ -150,7 +159,7 @@ class AssistantBindingTest {
                 autoConfigEnabled = true,
                 target = PowerAssistantTarget.ETA,
                 key = ModuleConfig.SECURE_VOICE_INTERACTION_SERVICE,
-                value = "io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService",
+                value = expectedEtaShortComponent,
             ),
         )
     }

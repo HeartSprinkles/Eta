@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Fork-owned configuration overlay; upstream defaults remain untouched.
+apply(from = rootProject.file("gradle/fork-debug.gradle.kts"))
+
 val releaseStoreFile = System.getenv("ETA_RELEASE_STORE_FILE")
 val releaseStorePassword = System.getenv("ETA_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = System.getenv("ETA_RELEASE_KEY_ALIAS")
