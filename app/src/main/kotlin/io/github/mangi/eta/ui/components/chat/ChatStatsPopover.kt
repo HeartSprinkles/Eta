@@ -248,8 +248,8 @@ internal fun ContextUsageStatsPopoverPopup(
     val body: @Composable ColumnScope.() -> Unit = {
         StatsSectionHeader(
             icon = ChatActionIcons.Database,
-            title = stringResource(if (stats.hasTokenUsage) R.string.stats_token_usage else R.string.ui_contextual_usage_d12810),
-            value = if (stats.hasTokenUsage) "${formatExactTokenCount(stats.totalTokens)} tok" else null,
+            title = stringResource(if (stats.hasTokenUsage) R.string.chat_stats_usage_title else R.string.ui_contextual_usage_d12810),
+            value = if (stats.hasTokenUsage) "${formatTokenAmount(stats.totalTokens)} tok" else null,
         )
         StatsSectionDivider()
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
