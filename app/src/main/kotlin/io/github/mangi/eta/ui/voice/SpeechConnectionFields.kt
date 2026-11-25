@@ -15,8 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.AsrProvider
@@ -26,13 +24,17 @@ import io.github.mangi.eta.data.model.SpeechCredentialField
 import io.github.mangi.eta.data.model.SpeechRegion
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiIcon
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.coui.CouiCardDivider as CouiDivider
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -41,6 +43,7 @@ internal fun SpeechConnectionSection(store: SpeechSettingsStore, synthesis: Bool
     if (!synthesis) {
         when (store.settings.asr) {
             AsrProvider.MIMO -> MimoAsrConnectionSection(store)
+            AsrProvider.DEEPSEEK -> DeepSeekAsrConnectionSection(store)
             AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE, AsrProvider.DOUBAO ->
                 QwenDoubaoConnectionSection(store, synthesis = false)
         }
@@ -52,6 +55,7 @@ internal fun SpeechConnectionSection(store: SpeechSettingsStore, synthesis: Bool
         TtsProvider.GEMINI -> GeminiConnectionSection(store)
         TtsProvider.MINIMAX -> MiniMaxConnectionSection(store)
         TtsProvider.MIMO -> MimoTtsConnectionSection(store)
+        TtsProvider.DEEPSEEK -> DeepSeekTtsConnectionSection(store)
     }
 }
 
@@ -68,8 +72,8 @@ internal fun SpeechApiKeyConnectionSection(
         SpeechGroupCard(title = stringResource(R.string.speech_group_connection)) {
             options()
             SpeechFieldColumn {
-                SpeechField("API Key", apiKey, secret = true, onChange = { onApiKey(it.trim()) })
-                SpeechField(stringResource(R.string.speech_base_url), baseUrl, onChange = { onBaseUrl(it.trim()) })
+                SettingsTextField("API Key", apiKey, secret = true, onChange = { onApiKey(it.trim()) })
+                SettingsTextField(stringResource(R.string.speech_base_url), baseUrl, onChange = { onBaseUrl(it.trim()) })
             }
         }
         SpeechNote(note)
@@ -116,19 +120,20 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                             SpeechRegion.entries.getOrNull(index)?.let { change(config.copy(region = it)) }
                         },
                     )
-                    Divider()
+                    CouiDivider()
                 } else {
-                    OverlayDropdownPreference(
+                    GlassDropdownPreference(
                         title = stringResource(R.string.speech_region),
                         items = regionItems,
                         selectedIndex = config.region.ordinal,
+                        backdrop = currentGlassOverlayBackdrop(),
                         onSelectedIndexChange = { index ->
                             SpeechRegion.entries.getOrNull(index)?.let { change(config.copy(region = it)) }
                         },
                     )
                 }
                 SpeechFieldColumn {
-                    SpeechField(
+                    SettingsTextField(
                         label = "API Key",
                         value = secret,
                         secret = true,
@@ -141,7 +146,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                     store.edit(if (synthesis) settings.copy(doubaoTts = it) else settings.copy(doubaoAsr = it))
                 }
                 SpeechFieldColumn {
-                    SpeechField(
+                    SettingsTextField(
                         label = stringResource(
                             if (config.legacyAuth) R.string.speech_access_token else R.string.speech_api_key,
                         ),
@@ -150,7 +155,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                         onChange = { store.credential(keyField, it.trim()) },
                     )
                     if (config.legacyAuth) {
-                        SpeechField(
+                        SettingsTextField(
                             label = stringResource(R.string.speech_app_id),
                             value = config.appId,
                             onChange = { change(config.copy(appId = it.trim())) },
@@ -162,7 +167,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
             val chevronRotation by animateFloatAsState(if (advanced) 180f else 0f)
             if (uiStyle == AppearanceUiStyle.COUI) {
                 val colors = CouiPageDefaults.themeColors()
-                Divider()
+                CouiDivider()
                 CouiPreference(
                     title = stringResource(R.string.speech_advanced),
                     showChevron = false,
@@ -201,7 +206,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                     if (qwen) {
                         val config = if (synthesis) settings.qwenTts else settings.qwenAsr
                         SpeechFieldColumn {
-                            SpeechField(
+                            SettingsTextField(
                                 label = stringResource(R.string.speech_qwen_base_url_hint),
                                 value = config.baseUrl,
                                 onChange = { value ->
@@ -221,7 +226,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                             )
                         }
                         if (uiStyle == AppearanceUiStyle.COUI) {
-                            Divider()
+                            CouiDivider()
                             CouiSwitchPreference(
                                 title = stringResource(R.string.speech_legacy_auth),
                                 checked = config.legacyAuth,
@@ -235,7 +240,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                             )
                         }
                         SpeechFieldColumn {
-                            SpeechField(
+                            SettingsTextField(
                                 label = stringResource(R.string.speech_base_url),
                                 value = config.baseUrl,
                                 onChange = { value ->
@@ -245,7 +250,7 @@ private fun QwenDoubaoConnectionSection(store: SpeechSettingsStore, synthesis: B
                                     )
                                 },
                             )
-                            SpeechField(
+                            SettingsTextField(
                                 label = stringResource(R.string.speech_resource_id_hint),
                                 value = config.resourceId,
                                 onChange = { value ->

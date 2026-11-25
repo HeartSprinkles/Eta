@@ -13,7 +13,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -29,10 +28,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -45,11 +45,13 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,26 +79,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.text.CouiTextKind
-import com.itos.coui.text.Text as CouiText
-import com.itos.coui.theme.CouiTheme
+import androidx.compose.ui.util.fastCoerceIn
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
+import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ConversationBranchBoundary
-import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
+import io.github.mangi.eta.ui.components.coui.rememberCouiPageBackdrop
+import io.github.mangi.eta.ui.layout.rememberFloatingBottomBarInsets
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
-import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
@@ -105,28 +105,37 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.model.latestContextUsage
 import io.github.mangi.eta.ui.voice.SpeechAutoReadAloud
 import io.github.mangi.eta.ui.voice.SpeechPlaybackHost
-import kotlin.math.exp
-import kotlin.math.min
+import io.github.suqi8.coui.kmp.blur.layerBackdrop
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.IconButtonDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.glassPress
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import kotlin.math.exp
+import kotlin.math.min
+import io.github.suqi8.coui.kmp.basic.IconButton as CouiIconButton
+import io.github.suqi8.coui.kmp.blur.LayerBackdrop as CouiLayerBackdrop
+import io.github.suqi8.coui.kmp.squircle.SquircleShape as CouiShape
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -185,7 +194,18 @@ internal fun AgentChatBody(
     topInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
-    val scrollState = rememberLazyListState(initialFirstVisibleItemIndex = messages.size + if (hasEarlierMessages) 1 else 0)
+    val visibleMessages = remember(messages, messageEdit?.targetMessageId, messageEdit?.preserveFollowingMessages) {
+        AgentConversationRevisionReducer.visibleMessagesForEdit(
+            messages = messages,
+            targetMessageId = messageEdit?.takeUnless { it.preserveFollowingMessages }?.targetMessageId,
+        ).filterNot { message ->
+            message is AgentMessageUi && message.content.isBlank()
+        }
+    }
+    val initialScrollIndex = remember {
+        visibleMessages.toTimelineEntries().size + if (hasEarlierMessages) 1 else 0
+    }
+    val scrollState = rememberLazyListState(initialFirstVisibleItemIndex = initialScrollIndex)
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
@@ -194,15 +214,6 @@ internal fun AgentChatBody(
         ?: BrowserSessionSnapshot()
     val contextUsage = remember(messages, modelPickerState.selectedModel) {
         latestContextUsage(messages, modelPickerState.selectedModel)
-    }
-
-    val visibleMessages = remember(messages, messageEdit?.targetMessageId, messageEdit?.preserveFollowingMessages) {
-        AgentConversationRevisionReducer.visibleMessagesForEdit(
-            messages = messages,
-            targetMessageId = messageEdit?.takeUnless { it.preserveFollowingMessages }?.targetMessageId,
-        ).filterNot { message ->
-            message is AgentMessageUi && message.content.isBlank()
-        }
     }
     val currentBrowserMessageId = remember(
         visibleMessages,
@@ -249,6 +260,7 @@ internal fun AgentChatBody(
             modelPickerState = modelPickerState,
             isCompacting = isCompacting,
             isBranching = isBranching,
+            isDrawerOpen = isDrawerOpen,
             contextUsage = contextUsage,
             isStreaming = isStreaming,
             reasoningEffort = reasoningEffort,
@@ -322,6 +334,7 @@ private fun AgentChatScaffold(
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
     isBranching: Boolean,
+    isDrawerOpen: Boolean,
     contextUsage: AgentContextUsageUi,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -369,6 +382,11 @@ private fun AgentChatScaffold(
     topInset: Dp,
     modifier: Modifier = Modifier,
 ) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val chatBackdrop = if (isCoui) null else rememberGlassBackdrop()
+    val couiChatBackdrop = if (isCoui) rememberCouiPageBackdrop(CouiTheme.colorScheme.backgroundWithCard) else null
+    val couiCapture = if (couiChatBackdrop == null) Modifier else Modifier.layerBackdrop(couiChatBackdrop)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
@@ -381,6 +399,7 @@ private fun AgentChatScaffold(
         bottomBar = {
             AgentChatBottomBar(
                 input = input,
+                imeAvoidanceEnabled = !isDrawerOpen,
                 isCompacting = isCompacting,
                 contextUsage = contextUsage,
                 showContextUsage = hasMessages,
@@ -393,6 +412,8 @@ private fun AgentChatScaffold(
                 inputSyncVersion = inputSyncVersion,
                 focusInputOnSync = focusInputOnSync,
                 messageEdit = messageEdit,
+                glassBackdrop = chatBackdrop,
+                couiBackdrop = couiChatBackdrop,
                 onSubmit = onSubmit,
                 onInterruptAndSubmit = onInterruptAndSubmit,
                 onSteerQueuedMessage = onSteerQueuedMessage,
@@ -413,41 +434,49 @@ private fun AgentChatScaffold(
         },
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
-        if (!hasMessages) {
-            EmptyChatState(
-                showSuggestions = showEmptySuggestions,
-                onSuggestionClick = onSuggestionClick,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = topInset, bottom = bottomPadding),
-            )
-        } else {
-            AgentConversationMessages(
-                visibleMessages = visibleMessages,
-                scrollState = scrollState,
-                isStreaming = isStreaming,
-                topInset = topInset,
-                bottomInset = bottomPadding,
-                keepBottomAnchored = keepBottomAnchored,
-                onBottomAnchorChanged = onBottomAnchorChanged,
-                onSuggestionClick = onSuggestionClick,
-                onRunTraceClick = onRunTraceClick,
-                onOpenBrowser = onOpenBrowser,
-                onEditMessage = onEditMessage,
-                onDeleteMessage = onDeleteMessage,
-                onRegenerateMessage = onRegenerateMessage,
-                onBranchMessage = onBranchMessage,
-                onSelectReplyCandidate = onSelectReplyCandidate,
-                messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
-                editTargetMessageId = messageEdit?.targetMessageId,
-                currentBrowserMessageId = currentBrowserMessageId,
-                hasEarlierMessages = hasEarlierMessages,
-                messageStartIndex = messageStartIndex,
-                historyLoadState = historyLoadState,
-                onLoadEarlierMessages = onLoadEarlierMessages,
-                onHistoryViewportChanged = onHistoryViewportChanged,
-                modifier = Modifier.fillMaxSize(),
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .captureGlassBackdrop(chatBackdrop)
+                .then(couiCapture),
+        ) {
+            if (!hasMessages) {
+                EmptyChatState(
+                    showSuggestions = showEmptySuggestions,
+                    onSuggestionClick = onSuggestionClick,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = topInset, bottom = bottomPadding),
+                )
+            } else {
+                AgentConversationMessages(
+                    visibleMessages = visibleMessages,
+                    scrollState = scrollState,
+                    isStreaming = isStreaming,
+                    topInset = topInset,
+                    bottomInset = bottomPadding,
+                    keepBottomAnchored = keepBottomAnchored,
+                    onBottomAnchorChanged = onBottomAnchorChanged,
+                    onSuggestionClick = onSuggestionClick,
+                    onRunTraceClick = onRunTraceClick,
+                    onOpenBrowser = onOpenBrowser,
+                    onEditMessage = onEditMessage,
+                    onDeleteMessage = onDeleteMessage,
+                    onRegenerateMessage = onRegenerateMessage,
+                    onBranchMessage = onBranchMessage,
+                    onSelectReplyCandidate = onSelectReplyCandidate,
+                    onEditGeneratedImage = onAttachImage,
+                    messageActionsEnabled = !isStreaming && !isCompacting && messageEdit == null,
+                    editTargetMessageId = messageEdit?.targetMessageId,
+                    currentBrowserMessageId = currentBrowserMessageId,
+                    hasEarlierMessages = hasEarlierMessages,
+                    messageStartIndex = messageStartIndex,
+                    historyLoadState = historyLoadState,
+                    onLoadEarlierMessages = onLoadEarlierMessages,
+                    onHistoryViewportChanged = onHistoryViewportChanged,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
@@ -471,6 +500,7 @@ internal fun AgentConversationMessages(
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    onEditGeneratedImage: ((String) -> Unit)? = null,
     messageActionsEnabled: Boolean = false,
     editTargetMessageId: String? = null,
     currentBrowserMessageId: String? = null,
@@ -482,11 +512,11 @@ internal fun AgentConversationMessages(
     modifier: Modifier = Modifier,
 ) {
     // 上一版条目只作复用比对，不参与组合观察。
-    val previousTimelineEntries = remember { arrayOf(emptyList<AgentTimelineEntry>()) }
+    val timelineCache = remember { TimelineEntriesCache() }
     val timelineEntries = remember(visibleMessages) {
-        visibleMessages.toTimelineEntries(previous = previousTimelineEntries[0])
+        visibleMessages.toTimelineEntries(previous = timelineCache.entries)
     }
-    SideEffect { previousTimelineEntries[0] = timelineEntries }
+    SideEffect { timelineCache.entries = timelineEntries }
     val activeWorkProcessKey = if (isStreaming) {
         (timelineEntries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
     } else {
@@ -511,6 +541,8 @@ internal fun AgentConversationMessages(
                 is ThinkingMessageUi -> message.id.takeIf { message.isStreaming }
                 else -> null
             }
+        }.also { ids ->
+            ids.forEach { streamingMarkdownCache.getOrCreate(it) }
         }
     }
     LaunchedEffect(streamingMarkdownCache, streamingMessageIds) {
@@ -532,18 +564,37 @@ internal fun AgentConversationMessages(
     }
     val densityScale = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
+    var expandSuppressVersion by remember { mutableIntStateOf(0) }
+    var suppressAutoReanchor by remember { mutableStateOf(false) }
+
+    LaunchedEffect(expandSuppressVersion) {
+        if (expandSuppressVersion == 0) return@LaunchedEffect
+        suppressAutoReanchor = true
+        delay(EXPAND_REANCHOR_SUPPRESS_MS)
+        suppressAutoReanchor = false
+    }
+
+    val onExpandItem = remember(onBottomAnchorChanged) {
+        {
+            suppressAutoReanchor = true
+            expandSuppressVersion += 1
+            onBottomAnchorChanged(false)
+        }
+    }
 
     LaunchedEffect(
         isListMeasured,
         isUserDragging,
         isAtBottom,
         keepBottomAnchored,
+        suppressAutoReanchor,
     ) {
         if (!isListMeasured) return@LaunchedEffect
         val next = resolveKeepBottomAnchored(
             current = keepBottomAnchored,
             isUserDragging = isUserDragging,
             isAtBottom = isAtBottom,
+            suppressAutoReanchor = suppressAutoReanchor,
         )
         if (next != keepBottomAnchored) {
             onBottomAnchorChanged(next)
@@ -570,10 +621,12 @@ internal fun AgentConversationMessages(
         } else if (isStreaming || isTailRendering) {
             isBottomSettling = true
         } else if (isBottomSettling) {
-            // 显现完成后还会切换稳定排版并插入操作行，等其完成测量再收口跟底。
+            // 显现完成后还会切换稳定排版并插入操作行，等其完成测量并对齐底部后收口。
             withFrameNanos { }
             withFrameNanos { }
-            snapshotFlow { !scrollState.canScrollForward }.first { it }
+            withTimeoutOrNull(BOTTOM_SETTLE_TIMEOUT_MS) {
+                snapshotFlow { !scrollState.canScrollForward }.first { it }
+            }
             isBottomSettling = false
         }
     }
@@ -606,19 +659,17 @@ internal fun AgentConversationMessages(
         Channel<BottomFollowDecision>(Channel.CONFLATED)
     }
 
-    LaunchedEffect(
-        bottomItemIndex,
-        keepBottomAnchored,
-        isUserDragging,
-        isStreaming,
-    ) {
+    LaunchedEffect(isStreaming, keepBottomAnchored) {
+        if (isStreaming && keepBottomAnchored) {
+            suppressAutoReanchor = false
+        }
         if (shouldRequestInitialBottom(
                 isStreaming = isStreaming,
                 keepBottomAnchored = keepBottomAnchored,
                 isUserDragging = isUserDragging,
             )
         ) {
-            scrollState.requestScrollToItem(bottomItemIndex)
+            scrollState.requestScrollToItem(currentBottomItemIndex)
         }
     }
 
@@ -681,11 +732,12 @@ internal fun AgentConversationMessages(
                 continue
             }
 
-            requestIndex?.let { targetIndex ->
+            val targetIndex = requestIndex
+            if (targetIndex != null) {
                 scrollState.requestScrollToItem(targetIndex)
                 requestIndex = null
                 remainingDistancePx = 0f
-                return@let
+                continue
             }
             if (remainingDistancePx <= 0f) continue
 
@@ -693,7 +745,7 @@ internal fun AgentConversationMessages(
             val elapsedSeconds = if (previousFrameNanos == 0L) {
                 1f / 60f
             } else {
-                ((frameNanos - previousFrameNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+                ((frameNanos - previousFrameNanos) / 1_000_000_000f).fastCoerceIn(0f, 0.05f)
             }
             previousFrameNanos = frameNanos
 
@@ -728,163 +780,161 @@ internal fun AgentConversationMessages(
 
     // 滚动层保持整屏，输入器作为后绘制浮层；输入器高度进入列表的
     // afterContentPadding，确保跟到底部时最后一行停在输入器上方。
-    Box(modifier = modifier.clipToBounds()) {
-        LazyColumn(
-            state = scrollState,
-            verticalArrangement = Arrangement.Top,
-            modifier = Modifier
-                .fillMaxSize()
-                .scrollEndHaptic()
-                .nestedScroll(historyPaging.scrollConnection)
-                .overScrollVertical(),
-            contentPadding = PaddingValues(
-                top = topInset + if (assistantOverlay) 8.dp else 10.dp,
-                bottom = bottomInset + 14.dp,
-            ),
-            overscrollEffect = null,
-        ) {
-            if (hasEarlierMessages) {
-                item(key = ChatHistoryBoundaryKey) {
-                    AgentHistoryLoadStatus(
-                        state = historyLoadState,
-                        enabled = !isStreaming && editTargetMessageId == null,
-                        onRetry = historyPaging.retry,
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val messagesBackdrop = if (isCoui || assistantOverlay) null else rememberGlassBackdrop()
+    CompositionLocalProvider(LocalOnChatItemExpand provides onExpandItem) {
+        Box(modifier = modifier.clipToBounds()) {
+            LazyColumn(
+                state = scrollState,
+                verticalArrangement = Arrangement.Top,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .captureGlassBackdrop(messagesBackdrop)
+                    .scrollEndHaptic()
+                    .nestedScroll(historyPaging.scrollConnection)
+                    .overScrollVertical(),
+                contentPadding = PaddingValues(
+                    top = topInset + if (assistantOverlay) 8.dp else 10.dp,
+                    bottom = bottomInset + 14.dp,
+                ),
+                overscrollEffect = null,
+            ) {
+                if (hasEarlierMessages) {
+                    item(key = ChatHistoryBoundaryKey) {
+                        AgentHistoryLoadStatus(
+                            state = historyLoadState,
+                            enabled = !isStreaming && editTargetMessageId == null,
+                            onRetry = historyPaging.retry,
+                        )
+                    }
+                }
+                items(
+                    items = timelineEntries,
+                    key = { it.key },
+                    contentType = { it.contentType() },
+                ) { entry ->
+                    val itemModifier = Modifier.animateItem(
+                        fadeInSpec = tween(durationMillis = 180),
+                        placementSpec = null,
+                        // 历史轮次被编辑、删除或重新生成时必须立即退出；退出动画会让已从
+                        // 状态中裁掉的旧消息继续绘制，并与同位置的新流式消息短暂重叠。
+                        fadeOutSpec = null,
+                    )
+                    when (entry) {
+                        is AgentTimelineEntry.Message -> {
+                            val message = entry.message
+                            ChatMessageItem(
+                                message = message,
+                                assistantOverlay = assistantOverlay,
+                                retainedStreamingState = (message as? AgentMessageUi)
+                                    ?.let { streamingMarkdownStates[it.id] },
+                                onSuggestionClick = onSuggestionClick,
+                                onRunTraceClick = onRunTraceClick,
+                                onOpenBrowser = onOpenBrowser,
+                                showBrowserShortcut = message is ToolActivityMessageUi &&
+                                    message.toolName == "browser_use" &&
+                                    message.id == currentBrowserMessageId,
+                                showCopyAction = message !is AgentMessageUi ||
+                                    message.characterEditable || message.id in finalResultMessageIds,
+                                showMessageActions = !assistantOverlay && (
+                                    message.id in finalResultMessageIds ||
+                                        (message is AgentMessageUi && message.characterEditable)
+                                    ),
+                                messageActionsEnabled = messageActionsEnabled,
+                                showBranchAction = !assistantOverlay && message.id in branchMessageIds,
+                                onBranchMessage = onBranchMessage,
+                                isEditing = message.id == editTargetMessageId,
+                                onEditMessage = onEditMessage,
+                                onDeleteMessage = onDeleteMessage,
+                                onRegenerateMessage = onRegenerateMessage,
+                                onSelectReplyCandidate = onSelectReplyCandidate,
+                                onEditGeneratedImage = if (!assistantOverlay) onEditGeneratedImage else null,
+                                modifier = itemModifier,
+                            )
+                        }
+
+                        is AgentTimelineEntry.WorkProcess -> {
+                            AgentWorkProcess(
+                                id = entry.key,
+                                active = entry.key == activeWorkProcessKey,
+                                messages = entry.messages,
+                                assistantOverlay = assistantOverlay,
+                                onOpenBrowser = onOpenBrowser,
+                                currentBrowserMessageId = currentBrowserMessageId,
+                                retainedStreamingStates = streamingMarkdownStates,
+                                modifier = itemModifier,
+                            )
+                        }
+                    }
+                }
+                item(key = ChatBottomSentinelKey) {
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp),
                     )
                 }
             }
-            items(
-                items = timelineEntries,
-                key = { it.key },
-                contentType = { it.contentType() },
-            ) { entry ->
-                val itemModifier = Modifier.animateItem(
-                    fadeInSpec = tween(durationMillis = 180),
-                    placementSpec = null,
-                    // 历史轮次被编辑、删除或重新生成时必须立即退出；退出动画会让已从
-                    // 状态中裁掉的旧消息继续绘制，并与同位置的新流式消息短暂重叠。
-                    fadeOutSpec = null,
-                )
-                when (entry) {
-                    is AgentTimelineEntry.Message -> {
-                        val message = entry.message
-                        ChatMessageItem(
-                            message = message,
-                            assistantOverlay = assistantOverlay,
-                            retainedStreamingState = (message as? AgentMessageUi)
-                                ?.takeIf { it.isStreaming || streamingMarkdownStates.containsKey(it.id) }
-                                ?.let { agentMessage ->
-                                    streamingMarkdownCache.getOrCreate(agentMessage.id)
-                                },
-                            onSuggestionClick = onSuggestionClick,
-                            onRunTraceClick = onRunTraceClick,
-                            onOpenBrowser = onOpenBrowser,
-                            showBrowserShortcut = message is ToolActivityMessageUi &&
-                                message.toolName == "browser_use" &&
-                                message.id == currentBrowserMessageId,
-                            showCopyAction = message !is AgentMessageUi ||
-                                message.characterEditable || message.id in finalResultMessageIds,
-                            showMessageActions = !assistantOverlay && (
-                                message.id in finalResultMessageIds ||
-                                    (message is AgentMessageUi && message.characterEditable)
-                                ),
-                            messageActionsEnabled = messageActionsEnabled,
-                            showBranchAction = !assistantOverlay && message.id in branchMessageIds,
-                            onBranchMessage = onBranchMessage,
-                            isEditing = message.id == editTargetMessageId,
-                            onEditMessage = onEditMessage,
-                            onDeleteMessage = onDeleteMessage,
-                            onRegenerateMessage = onRegenerateMessage,
-                            onSelectReplyCandidate = onSelectReplyCandidate,
-                            modifier = itemModifier,
-                        )
-                    }
 
-                    is AgentTimelineEntry.WorkProcess -> {
-                        entry.messages.forEach { message ->
-                            if (message is ThinkingMessageUi && message.isStreaming) {
-                                streamingMarkdownCache.getOrCreate(message.id)
-                            }
-                        }
-                        AgentWorkProcess(
-                            id = entry.key,
-                            active = entry.key == activeWorkProcessKey,
-                            messages = entry.messages,
-                            assistantOverlay = assistantOverlay,
-                            onOpenBrowser = onOpenBrowser,
-                            currentBrowserMessageId = currentBrowserMessageId,
-                            retainedStreamingStates = streamingMarkdownStates,
-                            modifier = itemModifier,
-                        )
-                    }
-                }
-            }
-            item(key = ChatBottomSentinelKey) {
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp),
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = !keepBottomAnchored && !isAtBottom,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = bottomInset + 8.dp),
-            enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
-            exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
-        ) {
-            val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
-            val couiDark = CouiTheme.isDark
-            IconButton(
-                modifier = if (isCoui) {
-                    Modifier
-                        .dropShadow(
-                            shape = CircleShape,
-                            shadow = Shadow(
-                                radius = 10.dp,
-                                color = Color.Black,
-                                alpha = if (couiDark) 0.24f else 0.08f,
-                            ),
-                        )
-                        .border(
-                            width = 0.5.dp,
-                            color = if (couiDark) Color(0x22FFFFFF) else Color(0x10000000),
-                            shape = CircleShape,
-                        )
-                } else {
-                    Modifier
-                        .dropShadow(
-                            shape = CircleShape,
-                            shadow = Shadow(radius = 8.dp, color = Color.Black, alpha = 0.08f),
-                        )
-                        .squircleBorder(
-                            width = 0.5.dp,
-                            color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                            cornerRadius = IconButtonDefaults.CornerRadius,
-                        )
-                },
-                onClick = {
+            AnimatedVisibility(
+                visible = !keepBottomAnchored && !isAtBottom,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomInset + 8.dp),
+                enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
+                exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
+            ) {
+                val scrollToBottom: () -> Unit = {
+                    suppressAutoReanchor = false
                     onBottomAnchorChanged(true)
                     coroutineScope.launch {
                         scrollState.animateScrollToItem(bottomItemIndex)
                     }
-                },
-                backgroundColor = if (isCoui) {
-                    if (couiDark) Color(0xFF24262B) else Color.White
+                }
+                if (isCoui) {
+                    val couiDark = CouiTheme.isDark
+                    CouiIconButton(
+                        modifier = Modifier
+                            .dropShadow(
+                                shape = CircleShape,
+                                shadow = Shadow(
+                                    radius = 10.dp,
+                                    color = Color.Black,
+                                    alpha = if (couiDark) 0.24f else 0.08f,
+                                ),
+                            )
+                            .border(
+                                width = 0.5.dp,
+                                color = if (couiDark) Color(0x22FFFFFF) else Color(0x10000000),
+                                shape = CircleShape,
+                            ),
+                        onClick = scrollToBottom,
+                        backgroundColor = CouiTheme.colorScheme.surface,
+                        material = false,
+                        minWidth = 36.dp,
+                        minHeight = 36.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDownward,
+                            contentDescription = stringResource(R.string.ui_back_to_bottom_32282e),
+                            modifier = Modifier.size(16.dp),
+                            tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                        )
+                    }
                 } else {
-                    MiuixTheme.colorScheme.surfaceContainerHigh
-                },
-                minWidth = 36.dp,
-                minHeight = 36.dp,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.ArrowDownward,
-                    contentDescription = stringResource(R.string.ui_back_to_bottom_32282e),
-                    modifier = Modifier.size(16.dp),
-                    tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.78f),
-                )
+                    GlassIconButton(
+                        onClick = scrollToBottom,
+                        backdrop = messagesBackdrop,
+                        size = 40.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDownward,
+                            contentDescription = stringResource(R.string.ui_back_to_bottom_32282e),
+                            modifier = Modifier.size(18.dp),
+                            tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        )
+                    }
+                }
             }
         }
     }
@@ -995,7 +1045,9 @@ private fun AgentTimelineEntry.contentType(): Any = when (this) {
 }
 
 private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =
-    this is ThinkingMessageUi || this is ToolActivityMessageUi || this is ToolSummaryMessageUi
+    this is ThinkingMessageUi ||
+        this is ToolSummaryMessageUi ||
+        (this is ToolActivityMessageUi && toolName != ImageGenToolCatalog.TOOL_NAME)
 
 /**
  * 一轮对话（两条用户消息之间）里最后一条 Agent 正文视为最终结果，其余为中间步骤。
@@ -1026,6 +1078,7 @@ internal fun resolveFinalResultMessageIds(
 
 @Composable
 private fun AgentChatBottomBar(
+    imeAvoidanceEnabled: Boolean,
     input: String,
     isCompacting: Boolean,
     contextUsage: AgentContextUsageUi,
@@ -1039,6 +1092,8 @@ private fun AgentChatBottomBar(
     inputSyncVersion: Int,
     focusInputOnSync: Boolean,
     messageEdit: MessageEditUiState?,
+    glassBackdrop: Backdrop?,
+    couiBackdrop: CouiLayerBackdrop?,
     onSubmit: (String) -> Unit,
     onInterruptAndSubmit: (String) -> Unit,
     onSteerQueuedMessage: (String) -> Unit,
@@ -1057,10 +1112,14 @@ private fun AgentChatBottomBar(
     onCancelMessageEdit: () -> Unit,
 ) {
     val surface = MiuixTheme.colorScheme.surface
+    val bottomBarInsets = rememberFloatingBottomBarInsets(
+        baseInsets = WindowInsets.navigationBars,
+        fixedBottomPadding = 10.dp,
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .imePadding(),
+            .then(if (imeAvoidanceEnabled) Modifier.imePadding() else Modifier),
     ) {
         // 底部以连续垂直渐隐承接悬浮输入胶囊，避免一整块不透明实心矩形把消息流生硬截断。
         Box(
@@ -1078,7 +1137,7 @@ private fun AgentChatBottomBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                .windowInsetsPadding(bottomBarInsets)
                 .padding(top = 14.dp, start = 14.dp, end = 14.dp, bottom = 10.dp),
         ) {
             AgentChatInputBar(
@@ -1113,6 +1172,8 @@ private fun AgentChatBottomBar(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                glassBackdrop = glassBackdrop,
+                couiBackdrop = couiBackdrop,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -1124,13 +1185,21 @@ private const val BOTTOM_FOLLOW_MAX_FRAME_SECONDS = 0.05f
 private const val BOTTOM_FOLLOW_MAX_SPEED_DP_PER_SECOND = 720f
 private const val BOTTOM_FOLLOW_MIN_STEP_PX = 0.5f
 private const val BOTTOM_FOLLOW_SNAP_DISTANCE_PX = 0.75f
+private const val EXPAND_REANCHOR_SUPPRESS_MS = 350L
+private const val BOTTOM_SETTLE_TIMEOUT_MS = 600L
+
+private class TimelineEntriesCache {
+    var entries: List<AgentTimelineEntry> = emptyList()
+}
 
 internal fun resolveKeepBottomAnchored(
     current: Boolean,
     isUserDragging: Boolean,
     isAtBottom: Boolean,
+    suppressAutoReanchor: Boolean = false,
 ): Boolean = when {
     isUserDragging -> isAtBottom
+    suppressAutoReanchor -> current
     isAtBottom -> true
     else -> current
 }
@@ -1187,22 +1256,33 @@ private fun EmptyChatState(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (character != null) {
+                val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
                 CharacterAvatar(
                     name = character.characterName,
                     avatarPath = character.avatarPath,
-                    size = 88.dp,
+                    size = 68.dp,
                     shape = CircleShape,
+                    borderWidth = 0.5.dp,
+                    borderColor = if (isDark) {
+                        Color.White.copy(alpha = 0.14f)
+                    } else {
+                        Color.Black.copy(alpha = 0.08f)
+                    },
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 Text(
                     text = character.characterName,
-                    style = MiuixTheme.textStyles.title2,
+                    style = MiuixTheme.textStyles.title2.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.2).sp,
+                    ),
                     color = MiuixTheme.colorScheme.onSurface,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.chat_character_story_start),
-                    style = MiuixTheme.textStyles.body2,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             } else {
@@ -1215,9 +1295,8 @@ private fun EmptyChatState(
                     ),
                     color = MiuixTheme.colorScheme.onSurface,
                 )
+                Spacer(modifier = Modifier.height(26.dp))
             }
-
-            Spacer(modifier = Modifier.height(26.dp))
 
             AnimatedVisibility(
                 visible = showSuggestions && !isCharacterConversation,
@@ -1280,9 +1359,14 @@ private fun SuggestionCard(
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
     } else {
         Modifier
+            .glassPress(interactionSource)
             .squircleSurface(color = fill, cornerRadius = 15.dp)
             .squircleBorder(width = 0.5.dp, color = border, cornerRadius = 15.dp)
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
     }
     Row(
         modifier = modifier

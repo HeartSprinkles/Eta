@@ -1,14 +1,14 @@
 package io.github.mangi.eta.agent.overlay
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -37,6 +37,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -44,6 +46,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.Path
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
+import io.github.mangi.eta.ui.components.coui.couiPressMotion
+import io.github.mangi.eta.ui.components.coui.rememberCouiPressMotion
+import io.github.suqi8.coui.kmp.squircle.SquircleShape as CouiShape
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import top.yukonga.miuix.kmp.squircle.addSquircleRect
 import top.yukonga.miuix.kmp.basic.IconButton
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -87,11 +94,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.motion.couiPressMotion
-import com.itos.coui.motion.rememberCouiPressMotion
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.StaticMarkdown
 import io.github.mangi.eta.R
@@ -226,8 +228,7 @@ internal fun AgentOverlayGlow(
 
 @Composable
 internal fun OverlaySupplementInput(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     onCancel: () -> Unit,
     onSend: () -> Unit,
 ) {
@@ -255,7 +256,7 @@ internal fun OverlaySupplementInput(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            if (value.isBlank()) {
+            if (state.text.isBlank()) {
                 Text(
                     text = stringResource(R.string.overlay_supplement_hint),
                     color = textColor.copy(alpha = 0.45f),
@@ -264,8 +265,8 @@ internal fun OverlaySupplementInput(
                 )
             }
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                state = state,
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 4),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
@@ -276,7 +277,6 @@ internal fun OverlaySupplementInput(
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                 cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
-                maxLines = 4,
             )
         }
 
@@ -296,7 +296,7 @@ internal fun OverlaySupplementInput(
                 CouiButton(
                     text = stringResource(R.string.overlay_send),
                     onClick = onSend,
-                    enabled = value.isNotBlank(),
+                    enabled = state.text.isNotBlank(),
                     role = CouiButtonRole.Primary,
                     minHeight = 32.dp,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -313,7 +313,7 @@ internal fun OverlaySupplementInput(
                 TextButton(
                     text = stringResource(R.string.overlay_send),
                     onClick = onSend,
-                    enabled = value.isNotBlank(),
+                    enabled = state.text.isNotBlank(),
                     minWidth = 44.dp,
                     minHeight = 32.dp,
                     insideMargin = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -369,7 +369,7 @@ internal fun AgentResultCard(
     }
     val settledOffset by animateFloatAsState(
         targetValue = dragOffset,
-        animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "result_drag",
     )
     val dismissThreshold = with(density) { 96.dp.toPx() }
@@ -382,7 +382,7 @@ internal fun AgentResultCard(
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically(spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)) { it } +
+            enter = slideInVertically(tween(durationMillis = 260, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))) { it } +
                 fadeIn(tween(200)),
             exit = slideOutVertically(tween(ResultCardExitMs)) { it } + fadeOut(tween(ResultCardExitMs)),
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -559,7 +559,7 @@ private fun ResultCardActions(
                     imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                     contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d),
                     modifier = Modifier.size(18.dp),
-                    tint = if (copied) CouiTheme.colorSchemeFor(dark).accent else CouiTheme.colorSchemeFor(dark).onSurface,
+                    tint = if (copied) CouiTheme.colorScheme.primary else CouiTheme.colorScheme.labelPrimary,
                 )
             }
         } else {

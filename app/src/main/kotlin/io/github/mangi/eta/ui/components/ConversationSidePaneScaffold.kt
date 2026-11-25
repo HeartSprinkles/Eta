@@ -4,20 +4,20 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.interaction.DragInteraction
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -32,25 +32,24 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastRoundToInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.app.LocalEtaTopLayer
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
-import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -73,6 +72,7 @@ fun ConversationSidePaneScaffold(
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
     onSearchChange: (String) -> Unit,
+    onNewConversation: () -> Unit = {},
     onConversationSelected: (String) -> Unit,
     onConversationTogglePin: (ConversationSummaryUi) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
@@ -82,14 +82,21 @@ fun ConversationSidePaneScaffold(
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSkills: () -> Unit,
+    onOpenScheduledTasks: () -> Unit = {},
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
+    activeModelLabel: String? = null,
+    hasPermissionAttention: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val sceneLifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val navigationEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    val existingTopLayer = LocalEtaTopLayer.current
+    val fallbackTopLayer = if (existingTopLayer == null) remember { EtaTopLayerState() } else null
+    val activeTopLayer = existingTopLayer ?: fallbackTopLayer!!
 
+    CompositionLocalProvider(LocalEtaTopLayer provides activeTopLayer) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val density = LocalDensity.current
         val paneWidth = minOf(maxWidth * ConversationPaneMetrics.PaneWidthFraction, ConversationPaneMetrics.PaneMaxWidth)
@@ -123,17 +130,8 @@ fun ConversationSidePaneScaffold(
         val currentVisible by rememberUpdatedState(visible)
         val currentOnOpen by rememberUpdatedState(onOpen)
         val currentOnDismiss by rememberUpdatedState(onDismiss)
-        val hapticFeedback = LocalHapticFeedback.current
-        val currentHapticFeedback by rememberUpdatedState(hapticFeedback)
         val dragInteractions = remember { MutableInteractionSource() }
         val isDragging by dragInteractions.collectIsDraggedAsState()
-        LaunchedEffect(dragInteractions) {
-            dragInteractions.interactions.collect { interaction ->
-                if (interaction is DragInteraction.Stop) {
-                    currentHapticFeedback.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                }
-            }
-        }
         val isRevealed by remember(paneDragState) {
             derivedStateOf {
                 val offset = paneDragState.offset
@@ -145,7 +143,6 @@ fun ConversationSidePaneScaffold(
         val focusManager = LocalFocusManager.current
         val keyboard = LocalSoftwareKeyboardController.current
         val closePane: () -> Unit = {
-            currentHapticFeedback.performHapticFeedback(HapticFeedbackType.GestureEnd)
             focusManager.clearFocus()
             keyboard?.hide()
             if (currentVisible) {
@@ -225,7 +222,11 @@ fun ConversationSidePaneScaffold(
                         state = state,
                         width = paneWidth,
                         listState = panelListState,
+                        isRevealed = isRevealed,
+                        activeModelLabel = activeModelLabel,
+                        hasPermissionAttention = hasPermissionAttention,
                         onSearchChange = onSearchChange,
+                        onNewConversation = onNewConversation,
                         onConversationSelected = onConversationSelected,
                         onConversationTogglePin = onConversationTogglePin,
                         onConversationRename = onConversationRename,
@@ -235,6 +236,7 @@ fun ConversationSidePaneScaffold(
                         onOpenModelProviders = onOpenModelProviders,
                         onOpenTools = onOpenTools,
                         onOpenSkills = onOpenSkills,
+                        onOpenScheduledTasks = onOpenScheduledTasks,
                         onOpenCharacters = onOpenCharacters,
                         onOpenPermissions = onOpenPermissions,
                         modifier = Modifier
@@ -275,7 +277,7 @@ fun ConversationSidePaneScaffold(
                 },
             ) { measurables, constraints ->
                 val panel = measurables[0].measure(
-                    Constraints.fixed(paneWidthPx.roundToInt(), constraints.maxHeight),
+                    Constraints.fixed(paneWidthPx.fastRoundToInt(), constraints.maxHeight),
                 )
                 val page = measurables[1].measure(
                     Constraints.fixed(constraints.maxWidth, constraints.maxHeight),
@@ -283,11 +285,15 @@ fun ConversationSidePaneScaffold(
                 layout(constraints.maxWidth, constraints.maxHeight) {
                     // 物理左侧是会话区；不随 RTL 改变两个槽位的关系。
                     val motion = conversationPaneMotion(paneDragState.offset, paneWidthPx)
-                    val offset = motion.foregroundOffset.roundToInt()
+                    val offset = motion.foregroundOffset.fastRoundToInt()
                     panel.placeWithLayer(offset - panel.width, 0)
                     page.placeWithLayer(offset, 0)
                 }
             }
         }
+        if (fallbackTopLayer != null) {
+            EtaTopLayerHost(fallbackTopLayer)
+        }
+    }
     }
 }

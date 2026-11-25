@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
@@ -21,6 +20,7 @@ import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechSettings
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
@@ -28,11 +28,13 @@ import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.coui.CouiCardDivider as CouiDivider
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -49,10 +51,11 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
         AsrProvider.MIMO -> R.string.speech_asr_note_mimo
+        AsrProvider.DEEPSEEK -> R.string.speech_asr_note_deepseek
     }
     val showQwenLanguage = when (settings.asr) {
         AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE -> true
-        AsrProvider.DOUBAO, AsrProvider.MIMO -> false
+        AsrProvider.DOUBAO, AsrProvider.MIMO, AsrProvider.DEEPSEEK -> false
     }
 
     when (LocalUiStyle.current) {
@@ -88,7 +91,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                     if (showQwenLanguage) {
                         SpeechGroupCard {
                             SpeechFieldColumn {
-                                SpeechField(
+                                SettingsTextField(
                                     label = stringResource(R.string.speech_language_hint),
                                     value = settings.language,
                                     onChange = { store.edit(settings.copy(language = it.trim())) },
@@ -111,7 +114,12 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                     SpeechNote(stringResource(R.string.speech_recognition_disabled_note))
                 }
                 SpeechSaveBlock(store) {
-                    validateSpeechSettings(store.settings, store.credentials, synthesis = false)
+                    validateSpeechSettings(
+                        store.settings,
+                        store.credentials,
+                        synthesis = false,
+                        hasProviderDeepSeekKey = store.hasProviderDeepSeekKey,
+                    )
                 }
                 CouiPageBottomSpacer()
             }
@@ -139,10 +147,11 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                     item(key = "service") {
                         Column {
                             SpeechGroupCard(title = stringResource(R.string.speech_group_service)) {
-                                OverlayDropdownPreference(
+                                GlassDropdownPreference(
                                     title = stringResource(R.string.speech_service_and_model),
                                     items = asrLabels,
                                     selectedIndex = settings.asr.ordinal,
+                                    backdrop = currentGlassOverlayBackdrop(),
                                     onSelectedIndexChange = { index ->
                                         AsrProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
                                     },
@@ -158,7 +167,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                         item(key = "language") {
                             SpeechGroupCard {
                                 SpeechFieldColumn {
-                                    SpeechField(
+                                    SettingsTextField(
                                         label = stringResource(R.string.speech_language_hint),
                                         value = settings.language,
                                         onChange = { store.edit(settings.copy(language = it.trim())) },
@@ -228,12 +237,13 @@ private fun SpeechResultSection(store: SpeechSettingsStore) {
                             options.getOrNull(index)?.let { store.edit(settings.copy(autoSendSilenceMs = it)) }
                         },
                     )
-                    Divider()
+                    CouiDivider()
                 } else {
-                    OverlayDropdownPreference(
+                    GlassDropdownPreference(
                         title = stringResource(R.string.speech_auto_send_title),
                         items = optionLabels,
                         selectedIndex = selectedOptionIndex,
+                        backdrop = currentGlassOverlayBackdrop(),
                         onSelectedIndexChange = { index ->
                             options.getOrNull(index)?.let { store.edit(settings.copy(autoSendSilenceMs = it)) }
                         },

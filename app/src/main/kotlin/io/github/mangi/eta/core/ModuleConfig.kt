@@ -7,7 +7,7 @@ internal object ModuleConfig {
     const val HOT_PATH_LOG_WINDOW_MS = 60_000L
 
     const val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
-    /** 当前安装包的包名；测试版通过 applicationId 后缀隔离，保持与原版共存。 */
+/** 当前安装包的包名；测试版通过 applicationId 后缀隔离，保持与原版共存。 */
     val ETA_PACKAGE: String = BuildConfig.APPLICATION_ID
     const val BREENO_PACKAGE = "com.heytap.speechassist"
     const val COLOROS_MEMORY_PACKAGE = "com.oplus.aimemory"
@@ -15,8 +15,6 @@ internal object ModuleConfig {
     const val XIAOMI_LAUNCHER_PACKAGE = "com.miui.home"
     const val XIAOMI_GLOBAL_LAUNCHER_PACKAGE = "com.mi.android.globallauncher"
     val XIAOMI_LAUNCHER_PACKAGES = setOf(XIAOMI_LAUNCHER_PACKAGE, XIAOMI_GLOBAL_LAUNCHER_PACKAGE)
-    const val XIAOAI_CORE_PROCESS = "$XIAOAI_PACKAGE:core"
-    val AGENT_RUNTIME_ENTRY_PACKAGES = setOf(BREENO_PACKAGE, XIAOAI_PACKAGE)
     const val GOOGLE_ASSISTANT_COMPONENT =
         "$GOOGLE_PACKAGE/com.google.android.voiceinteraction.GsaVoiceInteractionService"
     val ETA_VOICE_INTERACTION_COMPONENT =

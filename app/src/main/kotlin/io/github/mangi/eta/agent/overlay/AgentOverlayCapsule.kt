@@ -4,16 +4,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -36,7 +36,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape as CouiCapsuleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Pause
@@ -70,16 +73,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.motion.couiPressMotion
-import com.itos.coui.motion.rememberCouiPressMotion
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.virtualdisplay.VirtualDisplaySnapshot
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
+import io.github.mangi.eta.ui.components.coui.couiPressMotion
+import io.github.mangi.eta.ui.components.coui.rememberCouiPressMotion
+import io.github.suqi8.coui.kmp.squircle.SquircleShape as CouiShape
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
@@ -115,7 +117,7 @@ internal fun AgentOverlayCapsule(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     var supplementMode by remember { mutableStateOf(false) }
-    var supplementText by remember { mutableStateOf("") }
+    val supplementText = remember { TextFieldState() }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -123,7 +125,7 @@ internal fun AgentOverlayCapsule(
     fun setSupplementMode(enabled: Boolean) {
         onSupplementModeChange(enabled)
         supplementMode = enabled
-        if (!enabled) supplementText = ""
+        if (!enabled) supplementText.clearText()
     }
 
     // 收起键盘后再切换窗口焦点，避免输入法在窗口失焦瞬间闪退或残留。
@@ -141,13 +143,13 @@ internal fun AgentOverlayCapsule(
         if (!expanded && supplementMode) leaveSupplementMode()
     }
 
-    // 为 Agent 手势让路：离开时快速上移收小淡出，回来时用弹簧落回，只改绘制层不触发重排。
+    // 为 Agent 手势让路：使用平滑减速曲线，不用弹簧回弹。
     val clearance by animateFloatAsState(
         targetValue = if (yielded) 1f else 0f,
         animationSpec = if (yielded) {
             tween(durationMillis = 180, easing = FastOutLinearInEasing)
         } else {
-            spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
+            tween(durationMillis = 240, easing = SmoothOutEasing)
         },
         label = "capsule_clearance",
     )
@@ -157,7 +159,7 @@ internal fun AgentOverlayCapsule(
     // 展开进度只驱动绘制层的透明度与位移，不参与测量；控制区用 AnimatedVisibility 只在两端各测一次。
     val expansion by animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
-        animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow),
+        animationSpec = tween(durationMillis = 260, easing = SmoothOutEasing),
         label = "capsule_expansion",
         finishedListener = { value -> if (value == 0f) onCollapsedSettled() },
     )
@@ -168,25 +170,26 @@ internal fun AgentOverlayCapsule(
             virtualDisplay.active -> MicroLensCapsuleWidth
             else -> DefaultCapsuleWidth
         },
-        animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = tween(durationMillis = 260, easing = SmoothOutEasing),
         label = "capsule_width",
     )
     val targetCapsuleCorner by animateDpAsState(
         targetValue = if (virtualDisplay.active && expanded) StageOuterCorner else CapsuleCorner,
-        animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = tween(durationMillis = 260, easing = SmoothOutEasing),
         label = "capsule_corner",
     )
 
     AnimatedVisibility(
         visible = visible && !virtualDisplay.materializingToMain,
-        enter = slideInVertically(spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)) { -it } +
-            fadeIn(tween(160)),
-        exit = slideOutVertically(tween(160)) { -it } + fadeOut(tween(140)),
+        enter = slideInVertically(tween(durationMillis = 260, easing = SmoothOutEasing)) { -it } +
+            fadeIn(tween(180)),
+        exit = slideOutVertically(tween(durationMillis = 200, easing = FastOutSlowInEasing)) { -it } +
+            fadeOut(tween(140)),
     ) {
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
         val capsuleShape = if (isCoui) {
-            CouiShape(targetCapsuleCorner, cornerWeight = 2.5f)
+            CouiShape(targetCapsuleCorner, weight = 2.5f)
         } else {
             RoundedCornerShape(targetCapsuleCorner)
         }
@@ -200,19 +203,15 @@ internal fun AgentOverlayCapsule(
         } else {
             Color.Transparent
         }
-        val headerPress = rememberCouiPressMotion()
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Column(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .width(targetCapsuleWidth)
                     .graphicsLayer {
-                        // 点击时轻微回弹，展开后保持原尺寸；只改绘制层，不触发重新布局。
-                        val press = (1f - 0.03f * (1f - expansion) * expansion * 4f) *
-                            if (isCoui && !expanded) headerPress.scale.value else 1f
                         val shrink = 1f - 0.08f * clearance
-                        scaleX = press * shrink
-                        scaleY = press * shrink
+                        scaleX = shrink
+                        scaleY = shrink
                         translationY = -12.dp.toPx() * clearance
                         alpha = 1f - clearance
                         transformOrigin = TransformOrigin(0.5f, 0f)
@@ -236,7 +235,6 @@ internal fun AgentOverlayCapsule(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(if (isCoui && !expanded) Modifier.couiPressMotion(headerPress) else Modifier)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -291,10 +289,10 @@ internal fun AgentOverlayCapsule(
 
                 AnimatedVisibility(
                     visible = expanded,
-                    enter = expandVertically(spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow), clip = true) +
+                    enter = expandVertically(tween(durationMillis = 260, easing = SmoothOutEasing), clip = true) +
                         fadeIn(tween(180, delayMillis = 40)),
-                    exit = shrinkVertically(spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium), clip = true) +
-                        fadeOut(tween(90)),
+                    exit = shrinkVertically(tween(durationMillis = 220, easing = SmoothOutEasing), clip = true) +
+                        fadeOut(tween(110)),
                 ) {
                     Column(
                         modifier = Modifier
@@ -316,11 +314,10 @@ internal fun AgentOverlayCapsule(
                         }
                         if (supplementMode) {
                             OverlaySupplementInput(
-                                value = supplementText,
-                                onValueChange = { supplementText = it },
+                                state = supplementText,
                                 onCancel = { leaveSupplementMode() },
                                 onSend = {
-                                    val text = supplementText.trim()
+                                    val text = supplementText.text.toString().trim()
                                     if (text.isNotBlank()) leaveSupplementMode { onSupplement(text) }
                                 },
                             )
@@ -478,3 +475,4 @@ private fun CapsuleAction(icon: ImageVector, label: String, tint: Color, onClick
 
 private val CapsuleCorner = 22.dp
 private val StageOuterCorner = 28.dp
+private val SmoothOutEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
