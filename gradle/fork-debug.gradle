@@ -1,0 +1,10 @@
+// Fork-owned opt-in override. This applied Groovy script does not need Android
+// plugin types on a Kotlin script compilation classpath.
+def forkDebugSuffix = providers.gradleProperty('eta.applicationIdSuffix').orNull
+if (forkDebugSuffix != null && !forkDebugSuffix.isBlank()) {
+    if (!(forkDebugSuffix ==~ /\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*/)) {
+        throw new GradleException('eta.applicationIdSuffix must be a dot-prefixed Android package suffix')
+    }
+    // Only the installation ID changes; upstream namespace and release defaults do not.
+    extensions.getByName('android').buildTypes.getByName('debug').applicationIdSuffix = forkDebugSuffix
+}

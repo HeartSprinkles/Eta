@@ -6,7 +6,7 @@ plugins {
 }
 
 // Fork-owned configuration overlay; upstream defaults remain untouched.
-apply(from = rootProject.file("gradle/fork-debug.gradle.kts"))
+apply(from = rootProject.file("gradle/fork-debug.gradle"))
 
 val releaseStoreFile = System.getenv("ETA_RELEASE_STORE_FILE")
 val releaseStorePassword = System.getenv("ETA_RELEASE_STORE_PASSWORD")

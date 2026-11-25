@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 已配置 API Key 或可用 OAuth 账号的供应商前置；组内顺序稳定、不改选中项 | `ui/screens/providers/ProviderListOrdering.kt`、`ConfiguredProviderUiState.kt`；`ModelProviderListScreen.kt` 仅接入状态与排序 | `ProviderListOrderingTest`；IO 凭据读取、恢复页面时刷新、取消传播、不把令牌放进 UI 状态 |
 | 用量总数以 K/M/B 紧凑显示、明细保持精确 | `ui/components/chat/TokenAmountFormat.kt`；统计卡片仅替换顶部标题/格式化调用 | `TokenAmountFormatTest`：阈值、四舍五入进位、负数、区域、Int 上限与精确明细 |
-| `.debug` 测试包与正式包可共存安装 | `core/ForkPackageIdentity.kt`、`gradle/fork-debug.gradle.kts`；清单权限、authority 与安装包标识同步 | `ForkComponentIdentityTest`、`AssistantBindingTest`、`EntrySurfaceGuardTest`；实际 APK 权限、authority、组件类名验证 |
+| `.debug` 测试包与正式包可共存安装 | `core/ForkPackageIdentity.kt`、`gradle/fork-debug.gradle`；清单权限、authority 与安装包标识同步 | `ForkComponentIdentityTest`、`AssistantBindingTest`、`EntrySurfaceGuardTest`；实际 APK 权限、authority、组件类名验证 |
 
 Kotlin 文件路径以 `app/src/main/kotlin/io/github/mangi/eta/` 为前缀；对应测试在 `app/src/test/kotlin/io/github/mangi/eta/`。
 
