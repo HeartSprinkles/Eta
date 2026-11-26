@@ -7,13 +7,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from verify_apk import COMPONENT_CLASSES, INSTALLATION_PACKAGES, NAMESPACE, verify_manifest
 
 
-def manifest_for(package):
+def manifest_for(package, protection_level="(type 0x10)0x2"):
     permission = f"{package}.permission.CONTROL_ACCESSIBILITY_PROTECTION"
     components = "\n".join(f'        A: android:name="{NAMESPACE}.{name}"' for name in COMPONENT_CLASSES)
     return f'''E: manifest (line=1)
   E: permission (line=10)
     A: android:name="{permission}" (Raw: "{permission}")
-    A: android:protectionLevel(0x01010009)=(type 0x11)0x2
+    A: android:protectionLevel(0x01010009)={protection_level}
   E: uses-permission (line=11)
     A: android:name="{permission}" (Raw: "{permission}")
   E: application (line=12)
@@ -49,11 +49,18 @@ class ApkIdentityVerifierTest(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, "Leaked installation identity"):
                     verify_manifest(manifest, package)
 
-    def test_rejects_non_signature_permission(self):
+    def test_accepts_aapt2_integer_encodings_of_signature(self):
         package = INSTALLATION_PACKAGES[0]
-        manifest = manifest_for(package).replace('(type 0x11)0x2', '(type 0x11)0x0')
-        with self.assertRaisesRegex(AssertionError, "Protection must be signature"):
-            verify_manifest(manifest, package)
+        for protection_level in ("(type 0x10)0x2", "(type 0x11)0x2", "0x2", "2", '"signature"'):
+            with self.subTest(protection_level=protection_level):
+                verify_manifest(manifest_for(package, protection_level), package)
+
+    def test_rejects_non_signature_or_extended_protection(self):
+        package = INSTALLATION_PACKAGES[0]
+        for protection_level in ("(type 0x10)0x0", "0x1", "0x3", "0x10002"):
+            with self.subTest(protection_level=protection_level):
+                with self.assertRaisesRegex(AssertionError, "Protection must be signature"):
+                    verify_manifest(manifest_for(package, protection_level), package)
 
 
 if __name__ == '__main__':
