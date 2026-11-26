@@ -37,26 +37,37 @@ VOICE_METADATA_CLASSES = (
 
 
 def _is_signature_protection_level(permission_block: str) -> bool:
-    """Read the typed value printed by aapt2 xmltree without assuming its type tag."""
-    values = re.findall(
-        r"^\s*A:\s*android:protectionLevel(?:\([^)]*\))?=(.*)$",
-        permission_block,
-        re.MULTILINE,
+    """Read aapt2's protectionLevel line, accepting its typed value encodings."""
+    attribute = re.compile(
+        r"^\s*A:\s*android:protectionLevel(?:\s*\([^)]*\))?\s*=\s*(.*?)\s*$"
     )
+    values = [
+        match.group(1)
+        for line in permission_block.splitlines()
+        if (match := attribute.match(line)) is not None
+    ]
     if len(values) != 1:
         return False
 
     value = values[0].strip()
-    # aapt2 versions may report the encoded value as either int-decimal or
-    # int-hex; the type annotation describes that encoding, not the permission.
-    value = re.sub(r"^\(type\s+0x[0-9a-fA-F]+\)\s*", "", value)
-    value = re.sub(r'\s+\(Raw:\s*"[^"]*"\)\s*$', "", value)
+    # xmltree can append the source spelling after the encoded value.
+    value = re.sub(r'\s+\(Raw:\s*"[^"]*"\)\s*$', "", value).strip()
+    # Type labels vary across aapt2 versions. They identify the binary value's
+    # type, not Android's protection level, so remove any leading annotation.
+    while True:
+        typed_value = re.match(r"^\(type\s+[^)]*\)\s*", value, re.IGNORECASE)
+        if typed_value is None:
+            break
+        value = value[typed_value.end():].strip()
+
     if value.startswith('"') and value.endswith('"'):
         return value[1:-1] == "signature"
     if value == "signature":
         return True
     if re.fullmatch(r"(?:0[xX][0-9a-fA-F]+|[0-9]+)", value):
         encoded = int(value, 16) if value.lower().startswith("0x") else int(value, 10)
+        # Compare the entire value, not just the base protection bits: reject
+        # signatureOrSystem (3) and flags such as privileged or development.
         return encoded == 0x2
     return False
 
@@ -78,7 +89,9 @@ def verify_manifest(manifest: str, expected: str) -> None:
     permission_blocks = re.findall(r"E: permission \(line=.*?(?=\n\s*E:|\Z)", manifest, re.DOTALL)
     permission_block = next((block for block in permission_blocks if f'"{permission}"' in block), None)
     assert permission_block, "Missing signature permission declaration"
-    assert _is_signature_protection_level(permission_block), "Protection must be signature"
+    assert _is_signature_protection_level(permission_block), (
+        f"Protection must be signature; aapt2 permission declaration:\n{permission_block}"
+    )
     for other in (*INSTALLATION_PACKAGES, NAMESPACE, f"{NAMESPACE}.debug"):
         if other != expected:
             for suffix in ("permission.CONTROL_ACCESSIBILITY_PROTECTION", "accessibility.health", "fileprovider"):
