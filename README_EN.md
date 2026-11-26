@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> This is the `HeartSprinkles/Eta` customization fork. `custom-main` is a linear patch stack on the pure `upstream-tracking` branch. See the [maintenance runbook](.github/UPSTREAM_SYNC.md) and [feature register](.github/FORK_FEATURES.md). The upstream project overview is retained below; this migration does not publish a release APK.
+> This is the `HeartSprinkles/Eta` customization fork. `custom-main` is a linear patch stack on the pure `upstream-tracking` branch. See the [maintenance runbook](.github/UPSTREAM_SYNC.md) and [feature register](.github/FORK_FEATURES.md). The Release installation ID is `io.github.mangi.etafork`; Debug defaults to `io.github.mangi.etafork.debug`. Both install independently of upstream and do not inherit old-package data; the namespace and implementation classes are unchanged. The upstream overview and upstream download links are retained below; this change does not publish a release APK.
 
 [![GitHub Stars](https://img.shields.io/github/stars/Mangi-11/Eta?logo=github&label=Stars&color=1677FF)](https://github.com/Mangi-11/Eta/stargazers)
 [![Total GitHub Releases downloads](https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&label=Downloads&color=1677FF)](https://github.com/Mangi-11/Eta/releases)

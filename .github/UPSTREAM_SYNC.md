@@ -1,4 +1,4 @@
-# Fork Git 维护流程（1.0.0）
+# Fork Git 维护流程（1.1.0）
 
 维护对象：`HeartSprinkles/Eta`；上游：`Mangi-11/Eta`。默认用 rebase，禁止把上游直接 merge/pull 到混合定制分支。
 
@@ -36,7 +36,7 @@ git push --force-with-lease="refs/heads/custom-main:$old_custom" origin custom-m
 
 - `Fork Upstream Rebase` 每周一 07:17 UTC 运行，也可在上游发版后从 Actions 手动启动；仅在此 fork 的 `custom-main` 上执行。
 - 准备 job 先校验分支职责和快进关系，更新 `upstream-tracking`；随后把定制重放到该基线，生成唯一 `sync-candidate/upstream-<run>-<attempt>`。
-- 独立只读 job 对候选精确 SHA 跑维护安全测试，以及正常 / `.debug` 两组 Lint、单元测试、Debug 构建与实际 APK 标识校验。候选代码不接触写令牌或签名 Secrets。
+- 独立只读 job 对候选精确 SHA 跑维护安全 / APK 验证器测试，以及 `standard` / `isolated` 两组 Lint、单元测试、Debug 构建与实际 APK 标识校验。`standard` 显式传 `-Peta.applicationIdSuffix=`，在正式安装身份 `io.github.mangi.etafork` 下运行 Debug 测试，并构建 / 校验真实的无签名 Release；`isolated` 省略属性校验默认 `io.github.mangi.etafork.debug`，再检查显式 `.debug` 兼容性。候选代码不接触写令牌或签名 Secrets；正式包名 Debug 产物只是 CI 夹具，不作为签名正式版分发。
 - 全部通过后，独立提升 job 核对远端 `custom-main`、tracking、candidate 都没变化，保存 `backup/custom-main-<run>-<attempt>`，仅用精确旧 SHA lease 更新 `custom-main`。任何冲突、失败或竞态都阻止提升，不绕过 GitHub 分支规则。
 - `GITHUB_TOKEN` 推送可能不触发其他工作流，所以验证是同一同步运行的前置 job，不依赖 push 连锁触发。无需 PAT，也不需要允许 Actions 创建 PR。
 - `Fork Check` 覆盖 feature/*、custom-main 推送和指向 custom-main 的 PR。保留上游原有 CI 文件不进行大面积改写；本 fork 的主动维护检查由独立 fork-* 工作流承担。

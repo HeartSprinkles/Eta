@@ -12,11 +12,8 @@ import org.junit.Test
 class AssistantBindingTest {
     // Implementation namespace is deliberately independent of the installation application ID.
     private val etaClass = "io.github.mangi.eta.agent.voice.EtaVoiceInteractionService"
-    private val expectedEtaShortComponent = if (BuildConfig.APPLICATION_ID == "io.github.mangi.eta") {
-        "${BuildConfig.APPLICATION_ID}/.agent.voice.EtaVoiceInteractionService"
-    } else {
-        "${BuildConfig.APPLICATION_ID}/$etaClass"
-    }
+    // Both fork production and Debug differ from the implementation namespace.
+    private val expectedEtaShortComponent = "${BuildConfig.APPLICATION_ID}/$etaClass"
 
     @Test
     fun `OEM target has no managed assistant binding`() {

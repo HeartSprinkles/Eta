@@ -18,13 +18,24 @@ class ForkComponentIdentityTest {
     private val voiceClass = "io.github.mangi.eta.agent.voice.EtaVoiceInteractionService"
 
     @Test
-    fun productionComponentCanUseRelativeClassButDebugCannot() {
+    fun upstreamComponentCanUseRelativeClassButLegacyDebugCannot() {
         val production = "io.github.mangi.eta/$voiceClass"
         val debug = "io.github.mangi.eta.debug/$voiceClass"
         assertEquals("io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService", flattenToShortComponentName(production))
         assertEquals(debug, flattenToShortComponentName(debug))
         assertTrue(isSameComponentName(production, "io.github.mangi.eta/.agent.voice.EtaVoiceInteractionService"))
         assertFalse(isSameComponentName(debug, "io.github.mangi.eta.debug/.agent.voice.EtaVoiceInteractionService"))
+    }
+
+    @Test
+    fun forkProductionAndDebugBothRequireOriginalFullyQualifiedClass() {
+        listOf("io.github.mangi.etafork", "io.github.mangi.etafork.debug").forEach { packageName ->
+            val component = "$packageName/$voiceClass"
+            val wrongRelativeComponent = "$packageName/.agent.voice.EtaVoiceInteractionService"
+            assertEquals(component, flattenToShortComponentName(component))
+            assertTrue(isSameComponentName(component, component))
+            assertFalse(isSameComponentName(component, wrongRelativeComponent))
+        }
     }
 
     @Test

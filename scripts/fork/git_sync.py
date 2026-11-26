@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fork maintenance 1.0.0: fast-forward tracking, rebase candidate, exact-lease promotion.
+"""Fork maintenance 1.1.0: fast-forward tracking, rebase candidate, exact-lease promotion.
 
 Never execute this file from a rebased candidate with a write token. The workflow
 copies its controller version to RUNNER_TEMP before touching candidate files.

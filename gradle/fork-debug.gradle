@@ -1,10 +1,12 @@
-// Fork-owned opt-in override. This applied Groovy script does not need Android
-// plugin types on a Kotlin script compilation classpath.
-def forkDebugSuffix = providers.gradleProperty('eta.applicationIdSuffix').orNull
-if (forkDebugSuffix != null && !forkDebugSuffix.isBlank()) {
-    if (!(forkDebugSuffix ==~ /\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*/)) {
-        throw new GradleException('eta.applicationIdSuffix must be a dot-prefixed Android package suffix')
-    }
-    // Only the installation ID changes; upstream namespace and release defaults do not.
-    extensions.getByName('android').buildTypes.getByName('debug').applicationIdSuffix = forkDebugSuffix
+// Fork-owned installation identity overlay. Applied Groovy avoids Android plugin
+// types on a Kotlin script compilation classpath; finalizeDsl runs after upstream defaults.
+def forkDebugSuffix = providers.gradleProperty('eta.applicationIdSuffix').getOrElse('.debug')
+if (!forkDebugSuffix.isEmpty() && !(forkDebugSuffix ==~ /\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*/)) {
+    throw new GradleException('eta.applicationIdSuffix must be empty or a dot-prefixed Android package suffix')
+}
+extensions.getByName('androidComponents').finalizeDsl { android ->
+    // Do not change namespace, implementation classes, app version, or protocol strings.
+    android.defaultConfig.applicationId = 'io.github.mangi.etafork'
+    // An explicitly empty property is reserved for CI's production-identity Debug fixture.
+    android.buildTypes.getByName('debug').applicationIdSuffix = forkDebugSuffix
 }

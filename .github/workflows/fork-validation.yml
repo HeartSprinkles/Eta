@@ -20,7 +20,7 @@ jobs:
         with:
           ref: ${{ inputs.revision }}
           persist-credentials: false
-      - name: Test fast-forward, rebase, conflict and lease safeguards
+      - name: Test Git safeguards and APK identity verifier
         run: python3 -m unittest discover -s scripts/fork/tests -v
 
   android:
@@ -47,19 +47,33 @@ jobs:
         run: |
           set -euo pipefail
           args=("-Peta.buildMetadata=${REVISION:0:7}")
-          if [[ "$VARIANT" == isolated ]]; then
-            args+=("-Peta.applicationIdSuffix=.debug")
+          tasks=(:app:lintDebug :app:testDebugUnitTest :app:assembleDebug)
+          if [[ "$VARIANT" == standard ]]; then
+            # CI-only production-ID Debug fixture; never a distributable Release.
+            args+=("-Peta.applicationIdSuffix=")
+            # Also verify a real unsigned Release APK, without signing Secrets.
+            tasks+=(:app:assembleRelease)
           fi
-          ./gradlew --no-daemon --no-configuration-cache --continue "${args[@]}" \
-            :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+          # isolated deliberately omits the property to exercise the default .debug.
+          ./gradlew --no-daemon --no-configuration-cache --continue "${args[@]}" "${tasks[@]}"
       - name: Verify APK installation and component identities
         env:
           VARIANT: ${{ matrix.variant }}
         shell: bash
         run: |
-          package=io.github.mangi.eta
+          set -euo pipefail
+          package=io.github.mangi.etafork
           if [[ "$VARIANT" == isolated ]]; then package+=.debug; fi
           python3 scripts/fork/verify_apk.py "$package"
+          if [[ "$VARIANT" == standard ]]; then
+            python3 scripts/fork/verify_apk.py io.github.mangi.etafork release
+          else
+            # Preserve compatibility with the existing explicit suffix argument.
+            ./gradlew --no-daemon --no-configuration-cache \
+              -Peta.applicationIdSuffix=.debug :app:processDebugManifest
+            merged=app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml
+            grep -F 'package="io.github.mangi.etafork.debug"' "$merged"
+          fi
       - name: Upload test APK
         if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

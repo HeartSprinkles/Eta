@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.virtualdisplay
 
 import android.view.Display
+import io.github.mangi.eta.BuildConfig
 import io.github.mangi.eta.agent.virtualdisplay.CanvasRoutingPolicy.CanvasTarget
 import io.github.mangi.eta.agent.virtualdisplay.CanvasRoutingPolicy.RequestedDisplay
 import org.junit.Assert.assertEquals
@@ -38,7 +39,7 @@ class CanvasRoutingPolicyTest {
     @Test
     fun systemUiAndEtaOwnPackageAlwaysStayOnMainDisplay() {
         listOf(
-            "io.github.mangi.eta",
+            BuildConfig.APPLICATION_ID,
             "com.android.systemui",
             "com.miui.home",
             "com.oppo.launcher",
@@ -55,6 +56,26 @@ class CanvasRoutingPolicyTest {
     }
 
     @Test
+    fun upstreamNamespaceIsNotMistakenForTheInstalledForkPackage() {
+        val plan = CanvasRoutingPolicy.decideLaunchPlan(
+            virtualDisplayEnabled = true,
+            backendAvailable = true,
+            targetPackage = "io.github.mangi.eta",
+        )
+        assertEquals(CanvasTarget.VIRTUAL_DISPLAY, plan.target)
+        assertEquals("auto_virtual", plan.reason)
+        assertEquals(
+            CanvasTarget.MAIN_DISPLAY,
+            CanvasRoutingPolicy.decideLaunchTarget(
+                virtualDisplayEnabled = true,
+                backendAvailable = true,
+                targetPackage = "io.github.mangi.eta",
+                ownPackage = "io.github.mangi.eta",
+            ),
+        )
+    }
+
+    @Test
     fun explicitMainRequestOrDisabledSettingRoutesToMainDisplay() {
         assertEquals(
             CanvasTarget.MAIN_DISPLAY,
@@ -63,7 +84,7 @@ class CanvasRoutingPolicyTest {
                 backendAvailable = true,
                 requested = RequestedDisplay.MAIN,
                 targetPackage = "com.jingdong.app.mall",
-                foregroundPackageOnMainDisplay = "io.github.mangi.eta",
+                foregroundPackageOnMainDisplay = BuildConfig.APPLICATION_ID,
             ),
         )
         assertEquals(
@@ -73,7 +94,7 @@ class CanvasRoutingPolicyTest {
                 backendAvailable = true,
                 requested = RequestedDisplay.AUTO,
                 targetPackage = "com.jingdong.app.mall",
-                foregroundPackageOnMainDisplay = "io.github.mangi.eta",
+                foregroundPackageOnMainDisplay = BuildConfig.APPLICATION_ID,
             ),
         )
         assertEquals(
@@ -83,7 +104,7 @@ class CanvasRoutingPolicyTest {
                 backendAvailable = false,
                 requested = RequestedDisplay.VIRTUAL,
                 targetPackage = "com.jingdong.app.mall",
-                foregroundPackageOnMainDisplay = "io.github.mangi.eta",
+                foregroundPackageOnMainDisplay = BuildConfig.APPLICATION_ID,
             ),
         )
     }
