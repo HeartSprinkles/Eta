@@ -39,7 +39,7 @@ VOICE_METADATA_CLASSES = (
 def _is_signature_protection_level(permission_block: str) -> bool:
     """Read aapt2's protectionLevel line, accepting its typed value encodings."""
     attribute = re.compile(
-        r"^\s*A:\s*android:protectionLevel(?:\s*\([^)]*\))?\s*=\s*(.*?)\s*$"
+        r"^\s*A:\s*(?:\S*/)?android:protectionLevel(?:\s*\([^)]*\))?\s*=\s*(.*?)\s*$"
     )
     values = [
         match.group(1)

@@ -130,6 +130,30 @@ class ApkIdentityVerifierTest(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, "Protection must be signature"):
                     verify_manifest(manifest_for(package, protection_level), package)
 
+    def test_accepts_fully_qualified_attribute_name_from_real_aapt2(self):
+        """Real aapt2 xmltree output prefixes the attribute with its resource URI."""
+        package = INSTALLATION_PACKAGES[0]
+        attribute = "    A: android:protectionLevel(0x01010009)=(type 0x10)0x2\n"
+        qualified = (
+            "    A: http://schemas.android.com/apk/res/android:protectionLevel(0x01010009)="
+        )
+        for value in ("0x00000002", "2", "(type 0x10)0x2", '"signature"'):
+            with self.subTest(value=value):
+                manifest = manifest_for(package).replace(attribute, qualified + value + "\n")
+                verify_manifest(manifest, package)
+
+    def test_rejects_non_signature_fully_qualified_attribute(self):
+        package = INSTALLATION_PACKAGES[1]
+        attribute = "    A: android:protectionLevel(0x01010009)=(type 0x10)0x2\n"
+        qualified = (
+            "    A: http://schemas.android.com/apk/res/android:protectionLevel(0x01010009)="
+        )
+        for value in ("0x00000001", "0x00010002", "18"):
+            with self.subTest(value=value):
+                manifest = manifest_for(package).replace(attribute, qualified + value + "\n")
+                with self.assertRaisesRegex(AssertionError, "Protection must be signature"):
+                    verify_manifest(manifest, package)
+
     def test_rejects_missing_or_duplicate_protection_attribute(self):
         package = INSTALLATION_PACKAGES[0]
         manifest = manifest_for(package)
