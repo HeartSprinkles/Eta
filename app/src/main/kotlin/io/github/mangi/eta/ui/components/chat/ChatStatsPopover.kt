@@ -50,6 +50,7 @@ import androidx.compose.ui.window.PopupProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
+import io.github.mangi.eta.ui.model.TokenSpeed
 import io.github.mangi.eta.ui.model.TokenUsageUi
 import java.text.NumberFormat
 import java.util.Locale
@@ -92,12 +93,7 @@ internal fun TurnStatsPill(
     val ttftSteps = usage.ttftSteps ?: if (usage.ttftMs != null) 1 else 0
     val avgTtftMs = if (ttftSteps > 0 && usage.ttftMs != null) usage.ttftMs / ttftSteps else null
     val decodeTokens = usage.decodeTokens ?: usage.outputTokens
-    val tps = if (usage.decodeMs != null && usage.decodeMs > 0L && decodeTokens != null && decodeTokens > 0) {
-        decodeTokens.toDouble() / (usage.decodeMs.toDouble() / 1_000.0)
-    } else {
-        null
-    }
-    val speedText = tps?.let { "${formatTokensPerSecond(it)} tok/s" }
+    val speedText = tokenSpeedText(TokenSpeed.of(decodeTokens, usage.ttftMs, usage.llmMs))
     val avgTtftText = avgTtftMs?.let { statDurationText(it) }
     val llmTimeText = if (llmMs > 0L) statDurationText(llmMs) else null
     val pillLabel = when {
@@ -239,11 +235,13 @@ internal fun ContextUsageStatsPopoverPopup(
         null
     }
     val avgTtftMs = if (stats.ttftSteps > 0) stats.ttftMs / stats.ttftSteps else null
-    val sessionSpeed = if (stats.decodeMs > 0L && stats.decodeTokens > 0) {
-        "${formatTokensPerSecond(stats.decodeTokens.toDouble() / (stats.decodeMs.toDouble() / 1_000.0))} tok/s"
-    } else {
-        null
-    }
+    val sessionSpeed = tokenSpeedText(
+        TokenSpeed.of(
+            outputTokens = stats.decodeTokens.takeIf { it > 0 } ?: stats.outputTokens,
+            ttftMs = stats.ttftMs,
+            totalMs = stats.llmMs,
+        ),
+    )
 
     val body: @Composable ColumnScope.() -> Unit = {
         StatsSectionHeader(
@@ -694,6 +692,13 @@ internal fun formatStatDuration(ms: Long): String {
     val minutes = totalSeconds / 60L
     val remSeconds = totalSeconds % 60L
     return AppStrings.get(R.string.stats_duration_min_sec, "%1\$d分%2\$d秒", minutes, remSeconds)
+}
+
+/** 流式读数直接显示；缓冲式读数加 `≈` 前缀，避免两种口径混为一谈。 */
+internal fun tokenSpeedText(speed: TokenSpeed): String? = when (speed) {
+    is TokenSpeed.Streamed -> "${formatTokensPerSecond(speed.tokensPerSecond)} tok/s"
+    is TokenSpeed.Buffered -> "≈${formatTokensPerSecond(speed.tokensPerSecond)} tok/s"
+    TokenSpeed.Unknown -> null
 }
 
 internal fun formatTokensPerSecond(tps: Double): String {

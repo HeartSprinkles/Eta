@@ -232,7 +232,6 @@ internal class AgentLoop(
             val completedAtMs = monotonicNowMs()
             val stepLlmMs = (completedAtMs - stepStartedAtMs).coerceAtLeast(0L)
             val stepTtftMs = firstTokenAtMs?.let { (it - stepStartedAtMs).coerceAtLeast(0L) }
-            val stepDecodeMs = firstTokenAtMs?.let { (completedAtMs - it).coerceAtLeast(0L) }
             context.observeInputTokens(roundInputTokens)
             round = completedRound.round
             val providerResponse = completedRound.response
@@ -285,7 +284,6 @@ internal class AgentLoop(
             val accumulatedUsage = turnMetrics.recordStep(
                 stepLlmMs = stepLlmMs,
                 stepTtftMs = stepTtftMs,
-                stepDecodeMs = stepDecodeMs,
                 stepUsage = roundUsage,
                 stepPromptTokens = roundInputTokens,
             )
@@ -764,7 +762,6 @@ internal class AgentLoop(
         fun recordStep(
             stepLlmMs: Long,
             stepTtftMs: Long?,
-            stepDecodeMs: Long?,
             stepUsage: AgentTokenUsage?,
             stepPromptTokens: Int? = null,
         ): AgentTokenUsage {
@@ -776,12 +773,9 @@ internal class AgentLoop(
             }
             val stepOut = stepUsage?.outputTokens
             if (stepOut != null && stepOut > 0) {
-                // 一次性返回的响应解码窗口会塌缩成几毫秒，直接相除会得到上万 tok/s 的假速度。
-                val window = DecodeTiming.effectiveWindowMs(stepDecodeMs, stepLlmMs, stepOut)
-                if (window != null) {
-                    decodeMs += window
-                    decodeTokens += stepOut
-                }
+                // 与 vLLM 同口径：解码区间 = 整轮耗时 − TTFT；是否可信由 TokenSpeed 在展示时判定。
+                decodeMs += (stepLlmMs - (stepTtftMs ?: 0L)).coerceAtLeast(0L)
+                decodeTokens += stepOut
             }
             stepUsage?.contextTokens?.let { contextTokens = it }
             (stepPromptTokens ?: stepUsage?.inputTokens)?.let { inputTokens = (inputTokens ?: 0) + it }
