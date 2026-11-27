@@ -775,9 +775,13 @@ internal class AgentLoop(
                 ttftSteps += 1
             }
             val stepOut = stepUsage?.outputTokens
-            if (stepDecodeMs != null && stepOut != null && stepOut > 0) {
-                decodeMs += stepDecodeMs.coerceAtLeast(0L)
-                decodeTokens += stepOut
+            if (stepOut != null && stepOut > 0) {
+                // 一次性返回的响应解码窗口会塌缩成几毫秒，直接相除会得到上万 tok/s 的假速度。
+                val window = DecodeTiming.effectiveWindowMs(stepDecodeMs, stepLlmMs, stepOut)
+                if (window != null) {
+                    decodeMs += window
+                    decodeTokens += stepOut
+                }
             }
             stepUsage?.contextTokens?.let { contextTokens = it }
             (stepPromptTokens ?: stepUsage?.inputTokens)?.let { inputTokens = (inputTokens ?: 0) + it }
