@@ -53,6 +53,7 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.screens.settings.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.IncomingShareRequest
+import io.github.mangi.eta.ui.TerminalJobWakeRequest
 import io.github.mangi.eta.ui.screens.settings.SettingsScreen
 import io.github.mangi.eta.ui.components.ChatImagePreviewHost
 import io.github.mangi.eta.ui.components.DialogActions
@@ -105,9 +106,12 @@ import io.github.mangi.eta.ui.screens.voice.SpeechOssScreen
 import io.github.mangi.eta.ui.screens.voice.SpeechRecognitionScreen
 import io.github.mangi.eta.ui.screens.voice.SpeechSettingsScreen
 import io.github.mangi.eta.ui.screens.voice.SpeechSynthesisScreen
+import io.github.mangi.eta.agent.terminal.TerminalJobWakePrompt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.glass.GlassDialog
@@ -141,6 +145,8 @@ fun AgentAppRoot(
     onArchivedConversationOpened: () -> Unit = {},
     requestedScheduledTaskId: String? = null,
     onScheduledTaskOpened: () -> Unit = {},
+    requestedTerminalJobWake: TerminalJobWakeRequest? = null,
+    onTerminalJobWakeHandled: () -> Unit = {},
     sharedContent: IncomingShareRequest? = null,
     onSharedContentAccepted: () -> Unit = {},
     openSpeechSettings: Boolean = false,
@@ -255,6 +261,27 @@ fun AgentAppRoot(
             navigator.popToHome()
         }
         onArchivedConversationOpened()
+    }
+
+    LaunchedEffect(requestedTerminalJobWake) {
+        val request = requestedTerminalJobWake ?: return@LaunchedEffect
+        conversationPaneOpen = false
+        navigator.popToHome()
+        agentState.selectConversation(request.conversationId)
+        val prompt = withContext(Dispatchers.IO) {
+            TerminalJobWakePrompt.load(context, request.jobId)
+        }
+        if (prompt != null) {
+            // 等目标会话加载完成后再走普通发送流程，避免把续跑指令发到上一个会话。
+            val ready = withTimeoutOrNull(15_000) {
+                snapshotFlow {
+                    agentState.currentConversationId == request.conversationId &&
+                        agentState.homeState.isConversationLoaded
+                }.first { it }
+            } != null
+            if (ready) agentState.sendCurrentMessage(prompt)
+        }
+        onTerminalJobWakeHandled()
     }
 
     LaunchedEffect(requestedScheduledTaskId) {

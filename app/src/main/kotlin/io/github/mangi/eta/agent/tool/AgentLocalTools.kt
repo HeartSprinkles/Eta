@@ -105,6 +105,7 @@ internal class AgentLocalTools(
     private val guiControl: GuiControlCoordinator.RunControl? = null,
     private val imageBudgetProvider: () -> ModelImageBudget = { ModelImageBudget.DEFAULT },
     browserSession: AgentBrowserSession? = null,
+    terminalWakeConversation: () -> String? = { null },
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
 
     private val closed = AtomicBoolean(false)
@@ -148,6 +149,7 @@ internal class AgentLocalTools(
             rootAvailable = rootAvailable,
         ),
         linuxSharedMountsProvider = { SharedFolderMounts.current() },
+        wakeConversationKeyProvider = terminalWakeConversation,
     )
     private val guiTools = GuiInteractionTools(
         context = context,

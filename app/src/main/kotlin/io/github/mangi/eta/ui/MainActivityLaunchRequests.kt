@@ -24,11 +24,17 @@ data class IncomingShareRequest(
     val text: String? = null,
 )
 
+data class TerminalJobWakeRequest(
+    val conversationId: String,
+    val jobId: String,
+)
+
 internal data class MainActivityLaunchRequests(
     val assistantConversationKey: String? = null,
     val conversationId: String? = null,
     val archivedConversation: ArchivedConversationRequest? = null,
     val scheduledTaskId: String? = null,
+    val terminalJobWake: TerminalJobWakeRequest? = null,
     val sharedContent: IncomingShareRequest? = null,
     val speechSettings: Boolean = false,
     val terminal: Boolean = false,
@@ -39,6 +45,13 @@ internal data class MainActivityLaunchRequests(
         MainActivity.ACTION_OPEN_CONVERSATION_ID -> copy(
             conversationId = intent.nonBlankExtra(MainActivity.EXTRA_CONVERSATION_ID),
         )
+        MainActivity.ACTION_WAKE_AFTER_JOB -> {
+            val conversationId = intent.nonBlankExtra(MainActivity.EXTRA_CONVERSATION_ID)
+            val jobId = intent.nonBlankExtra(MainActivity.EXTRA_JOB_ID)
+            if (conversationId != null && jobId != null) {
+                copy(terminalJobWake = TerminalJobWakeRequest(conversationId, jobId))
+            } else this
+        }
         MainActivity.ACTION_OPEN_SCHEDULED_TASK_DETAIL -> copy(
             scheduledTaskId = intent.nonBlankExtra(MainActivity.EXTRA_SCHEDULED_TASK_ID),
         )
@@ -69,6 +82,8 @@ internal data class MainActivityLaunchRequests(
             putString("archive_source", archivedConversation?.source)
             putString("archive_conversation_key", archivedConversation?.conversationKey)
             putString("scheduled_task_id", scheduledTaskId)
+            putString("wake_conversation_id", terminalJobWake?.conversationId)
+            putString("wake_job_id", terminalJobWake?.jobId)
             sharedContent?.let { share ->
                 putStringArrayList("share_uris", ArrayList(share.uris))
                 putString("share_mime_type", share.mimeType)
@@ -101,6 +116,13 @@ internal data class MainActivityLaunchRequests(
                     ArchivedConversationRequest(source, key)
                 } else null,
                 scheduledTaskId = saved.getString("scheduled_task_id"),
+                terminalJobWake = saved.getString("wake_conversation_id")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { conversationId ->
+                        saved.getString("wake_job_id")
+                            ?.takeIf(String::isNotBlank)
+                            ?.let { jobId -> TerminalJobWakeRequest(conversationId, jobId) }
+                    },
                 sharedContent = if (shareUris.isNotEmpty() || shareText != null) {
                     IncomingShareRequest(
                         uris = shareUris,

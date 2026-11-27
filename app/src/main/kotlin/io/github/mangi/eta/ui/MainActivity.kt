@@ -86,6 +86,11 @@ class MainActivity : ComponentActivity() {
                             launchRequests = launchRequests.copy(archivedConversation = null)
                             intent?.action = null
                         },
+                        requestedTerminalJobWake = launchRequests.terminalJobWake,
+                        onTerminalJobWakeHandled = {
+                            launchRequests = launchRequests.copy(terminalJobWake = null)
+                            intent?.action = null
+                        },
                         requestedScheduledTaskId = launchRequests.scheduledTaskId,
                         onScheduledTaskOpened = {
                             launchRequests = launchRequests.copy(scheduledTaskId = null)
@@ -207,6 +212,9 @@ class MainActivity : ComponentActivity() {
         /** 运行浮层的结果卡片回到本体：App 发起的 run 带会话 ID，直接打开该会话。 */
         const val ACTION_OPEN_CONVERSATION_ID = "io.github.mangi.eta.action.OPEN_CONVERSATION_ID"
         const val EXTRA_CONVERSATION_ID = "io.github.mangi.eta.extra.CONVERSATION_ID"
+        /** 后台命令完成通知的“继续处理”：回到原会话并自动发送续跑指令。 */
+        const val ACTION_WAKE_AFTER_JOB = "io.github.mangi.eta.action.WAKE_AFTER_JOB"
+        const val EXTRA_JOB_ID = "io.github.mangi.eta.extra.JOB_ID"
         /** 系统助手等外部入口发起的 run 按来源与会话键归档，回到本体时打开对应的归档会话。 */
         const val ACTION_OPEN_ARCHIVED_CONVERSATION = "io.github.mangi.eta.action.OPEN_ARCHIVED_CONVERSATION"
         const val EXTRA_HANDOFF_SOURCE = "io.github.mangi.eta.extra.HANDOFF_SOURCE"

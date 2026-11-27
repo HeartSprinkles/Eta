@@ -23,6 +23,8 @@ internal data class DetachedTask(
     val endReason: String? = null,
     val completionNotified: Boolean = false,
     val isolatedGroup: Boolean? = null,
+    /** 启动该命令的会话；非空时完成通知会提供“继续处理”入口。 */
+    val wakeConversationKey: String? = null,
 )
 
 internal data class DetachedTaskStatus(
@@ -63,6 +65,7 @@ internal fun DetachedTask.toRecordJson(): JSONObject = JSONObject()
     .put("end_reason", endReason ?: JSONObject.NULL)
     .put("completion_notified", completionNotified)
     .put("isolated_group", isolatedGroup ?: JSONObject.NULL)
+    .put("wake_conversation_key", wakeConversationKey ?: JSONObject.NULL)
 
 internal fun JSONObject.toDetachedTask(): DetachedTask = DetachedTask(
     id = getString("id"),
@@ -88,6 +91,7 @@ internal fun JSONObject.toDetachedTask(): DetachedTask = DetachedTask(
     endReason = if (isNull("end_reason")) null else getString("end_reason"),
     completionNotified = optBoolean("completion_notified", false),
     isolatedGroup = if (isNull("isolated_group")) null else getBoolean("isolated_group"),
+    wakeConversationKey = optString("wake_conversation_key").takeIf { it.isNotBlank() && it != "null" },
 )
 
 internal val DetachedTask.commandStatus: String get() = when {

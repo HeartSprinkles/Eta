@@ -153,6 +153,9 @@ internal class AgentAppState(
     val isLoadingEarlierMessages: Boolean get() = historyLoadState == ConversationHistoryLoadState.Loading
 
     private var selectedConversationId: String? = initialConversations.selectedConversationId
+
+    /** 当前选中的会话 ID；入口续跑需要先确认目标会话再发送。 */
+    val currentConversationId: String? get() = selectedConversationId
     private var conversationsById: Map<String, AgentChatHomeUiState> = initialConversations.conversationsById
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt

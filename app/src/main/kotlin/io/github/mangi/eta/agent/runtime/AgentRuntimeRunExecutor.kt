@@ -274,6 +274,8 @@ internal class AgentRuntimeRunExecutor(
                 runAvailableSkillIds = skillContext.installedSkills.mapTo(mutableSetOf()) { it.id },
                 pendingSkillConflict = pendingSkillConflict,
                 virtualDisplayEnabled = { currentPermissions().virtualDisplay },
+                // 只有 App 内会话能承接“继续处理”；外部入口的 run 不记录会话键。
+                terminalWakeConversation = { conversationId },
             )
             val routingExecutor = RoutingToolExecutor(
                 local = executor,

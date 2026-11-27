@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="chat_stats_usage_title">Usage</string>
+    <string name="execution_bg_cmd_continue">Continue</string>
 </resources>

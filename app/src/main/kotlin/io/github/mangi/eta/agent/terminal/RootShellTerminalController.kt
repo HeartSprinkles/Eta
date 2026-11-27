@@ -29,6 +29,8 @@ internal class RootShellTerminalController(
     },
     private val rootAvailable: () -> Boolean = { TerminalRuntime.rootAvailable },
     executionContext: TerminalExecutionContext? = null,
+    /** 当前 run 所属会话；后台命令完成后据此提供“继续处理”入口。 */
+    private val wakeConversationKeyProvider: () -> String? = { null },
 ) : AutoCloseable {
     private companion object {
         const val USER_STORAGE = "/storage/emulated/0"
@@ -90,7 +92,8 @@ internal class RootShellTerminalController(
                 val command = args.requiredText("command")
                 if (command.isBlank()) return errorJson("INVALID_ARGUMENT", "command 不能为空")
                 jobs.start(launcher, command, cwd, identity, environment,
-                    args.optString("description", "后台命令"), args.optLong("timeout_ms", 600_000))
+                    args.optString("description", "后台命令"), args.optLong("timeout_ms", 600_000),
+                    wakeConversationKey = wakeConversationKeyProvider()?.takeIf(String::isNotBlank))
             }
             "list" -> jobs.list(args.optBoolean("active_only", true))
             "read" -> jobs.read(args.requiredText("job_id"), args.optInt("max_bytes", 16_000))
