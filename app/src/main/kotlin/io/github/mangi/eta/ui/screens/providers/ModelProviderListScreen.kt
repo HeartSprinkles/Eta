@@ -73,7 +73,7 @@ internal fun ModelProviderListScreen(
         val nameRes = BuiltinProviders.defaultNameRes(provider.id, provider.name)
         provider.id to (if (nameRes != null) stringResource(nameRes) else provider.name)
     }
-    val filteredProviders = remember(providers, searchQuery, displayNames, configuredOAuthProviderIds) {
+    val filteredProviders = remember(providers, searchQuery, displayNames, configuredOAuthProviderIds, selectedProviderId) {
         val query = searchQuery.trim()
         providers.filter { provider ->
             val localizedName = displayNames[provider.id] ?: provider.name
@@ -82,7 +82,7 @@ internal fun ModelProviderListScreen(
                 localizedName.contains(query, ignoreCase = true) ||
                 provider.baseUrl.contains(query, ignoreCase = true) ||
                 provider.typeLabel.contains(query, ignoreCase = true)
-        }.sortedConfiguredFirst(configuredOAuthProviderIds)
+        }.sortedForDisplay(selectedProviderId, configuredOAuthProviderIds)
     }
 
     val activeDeleteTarget = providerToDelete ?: retainedProviderToDelete

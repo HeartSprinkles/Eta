@@ -24,10 +24,32 @@ internal fun List<ProviderSetting>.resolveConfiguredOAuthProviderIds(
 /** Match the credential session's entitlement and reauthentication checks without exposing tokens. */
 internal fun ProviderAccountSummary.isUsableCredential(): Boolean = !needsReauthentication && planEnabled
 
+/** Display rank: the selected provider leads, then providers with a usable credential. */
+private fun ProviderSetting.displayRank(
+    selectedProviderId: String?,
+    configuredOAuthProviderIds: Set<String>,
+): Int = when {
+    id == selectedProviderId -> 0
+    isConfiguredForUse(configuredOAuthProviderIds) -> 1
+    else -> 2
+}
+
+/**
+ * Order for the provider list: the selected provider first, configured providers next, the rest last.
+ * Sorting is stable, so the incoming relative order inside every group is preserved.
+ */
+internal fun List<ProviderSetting>.sortedForDisplay(
+    selectedProviderId: String? = null,
+    configuredOAuthProviderIds: Set<String> = emptySet(),
+): List<ProviderSetting> {
+    if (size < 2) return this
+    val ranks = associate { provider ->
+        provider.id to provider.displayRank(selectedProviderId, configuredOAuthProviderIds)
+    }
+    return sortedWith(compareBy<ProviderSetting> { provider -> ranks.getValue(provider.id) })
+}
+
 /** Stable partition: preserve the incoming relative order for configured and unconfigured providers. */
 internal fun List<ProviderSetting>.sortedConfiguredFirst(
     configuredOAuthProviderIds: Set<String> = emptySet(),
-): List<ProviderSetting> {
-    val (configured, unconfigured) = partition { it.isConfiguredForUse(configuredOAuthProviderIds) }
-    return if (unconfigured.isEmpty() || configured.isEmpty()) this else configured + unconfigured
-}
+): List<ProviderSetting> = sortedForDisplay(null, configuredOAuthProviderIds)

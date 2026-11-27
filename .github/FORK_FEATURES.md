@@ -4,7 +4,7 @@
 
 | 功能 | 独立实现 / 最小接入 | 回归验证 |
 | --- | --- | --- |
-| 已配置 API Key 或可用 OAuth 账号的供应商前置；组内顺序稳定、不改选中项 | `ui/screens/providers/ProviderListOrdering.kt`、`ConfiguredProviderUiState.kt`；`ModelProviderListScreen.kt` 仅接入状态与排序 | `ProviderListOrderingTest`；IO 凭据读取、恢复页面时刷新、取消传播、不把令牌放进 UI 状态 |
+| 当前选中的供应商置顶，其余已配置 API Key 或可用 OAuth 账号的供应商紧随其后；组内顺序稳定、排序不改选中项 | `ui/screens/providers/ProviderListOrdering.kt`、`ConfiguredProviderUiState.kt`；`ModelProviderListScreen.kt` 仅接入状态与排序 | `ProviderListOrderingTest`：选中项置顶、选中项缺失时等价于仅按凭据分区、IO 凭据读取、恢复页面时刷新、取消传播、不把令牌放进 UI 状态 |
 | 用量总数以 K/M/B 紧凑显示、明细保持精确 | `ui/components/chat/TokenAmountFormat.kt`；统计卡片仅替换顶部标题/格式化调用 | `TokenAmountFormatTest`：阈值、四舍五入进位、负数、区域、Int 上限与精确明细 |
 | 正式 / Debug 安装身份均独立于上游，三者可共存安装 | `core/ForkPackageIdentity.kt`、`gradle/fork-debug.gradle`；清单权限、authority 与安装包标识同步；自身画布路由与 ColorOS 后台设置使用实际包名 | `ForkComponentIdentityTest`、`AssistantBindingTest`、`CanvasRoutingPolicyTest`、`EntrySurfaceGuardTest`；实际 Debug / Release APK 权限、authority、组件类名验证 |
 

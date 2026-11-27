@@ -184,4 +184,94 @@ class ProviderListOrderingTest {
         assertEquals(providers.toSet(), sorted.toSet())
         assertEquals(listOf("b", "a", "c"), sorted.map(ProviderSetting::id))
     }
+
+    @Test
+    fun `当前选中的供应商排在首位即使未配置凭据`() {
+        val providers = listOf(
+            provider("a", apiKey = "sk-a"),
+            provider("b"),
+            provider("c", apiKey = "sk-c"),
+        )
+
+        assertEquals(
+            listOf("b", "a", "c"),
+            providers.sortedForDisplay(selectedProviderId = "b").map(ProviderSetting::id),
+        )
+    }
+
+    @Test
+    fun `选中且已配置的供应商只出现一次并保持首位`() {
+        val providers = listOf(
+            provider("a", apiKey = "sk-a"),
+            provider("b", apiKey = "sk-b"),
+            provider("c"),
+        )
+
+        val sorted = providers.sortedForDisplay(selectedProviderId = "b")
+
+        assertEquals(listOf("b", "a", "c"), sorted.map(ProviderSetting::id))
+        assertEquals(providers.size, sorted.size)
+    }
+
+    @Test
+    fun `选中项之后已配置项仍整体排在未配置项之前`() {
+        val providers = listOf(
+            provider("x"),
+            provider("y", apiKey = "sk-y"),
+            provider("z"),
+            provider("w", apiKey = "sk-w"),
+        )
+
+        assertEquals(
+            listOf("z", "y", "w", "x"),
+            providers.sortedForDisplay(selectedProviderId = "z").map(ProviderSetting::id),
+        )
+    }
+
+    @Test
+    fun `选中项不在列表中时顺序与仅按凭据分区一致`() {
+        val providers = listOf(provider("a"), provider("b", apiKey = "sk-b"), provider("c"))
+
+        assertEquals(
+            providers.sortedConfiguredFirst().map(ProviderSetting::id),
+            providers.sortedForDisplay(selectedProviderId = "missing").map(ProviderSetting::id),
+        )
+    }
+
+    @Test
+    fun `未提供选中项时与仅按凭据分区一致`() {
+        val providers = listOf(provider("a"), provider("b", apiKey = "sk-b"), provider("c"))
+
+        assertEquals(listOf("b", "a", "c"), providers.sortedForDisplay().map(ProviderSetting::id))
+        assertEquals(
+            providers.sortedConfiguredFirst().map(ProviderSetting::id),
+            providers.sortedForDisplay().map(ProviderSetting::id),
+        )
+    }
+
+    @Test
+    fun `选中的 OAuth 供应商置顶且不影响其他 OAuth 判定`() {
+        val providers = listOf(
+            provider("openai", authMode = ProviderAuthModes.OPENAI_CHATGPT),
+            provider("xai", authMode = ProviderAuthModes.XAI_GROK),
+            provider("local", apiKey = "sk-local"),
+        )
+
+        assertEquals(
+            listOf("openai", "xai", "local"),
+            providers.sortedForDisplay("openai", setOf("xai")).map(ProviderSetting::id),
+        )
+    }
+
+    @Test
+    fun `空列表与单元素列表在指定选中项时保持稳定`() {
+        assertEquals(
+            emptyList<String>(),
+            emptyList<ProviderSetting>().sortedForDisplay("a").map(ProviderSetting::id),
+        )
+        assertEquals(
+            listOf("only"),
+            listOf(provider("only")).sortedForDisplay("only").map(ProviderSetting::id),
+        )
+    }
 }
